@@ -1,0 +1,10 @@
+
+Utilisateur :
+Je veux faire un poc d'un système de paiement mdb par qrcode en utilisant Qibixx Pi Hat Plus en t'inspirant fortement de ce repo
+https://github.com/davidmak2709/dash-pos
+Et en consultant la doc de Qibixx
+Tu dois simplifier le code au maximum mais qu'il soit fonctionnel. Évite au maximum de supposer et si tu dois le faire avertis moi. Sinon réfère toi au maximum à des sources d'informations safes
+
+Assistant :
+Parfait — on part sur un POC simple, fonctionnel, inspiré du repo `dash-pos` mais sans Dash : on utilisera SumUp pour la partie QR / paiement...
+... (contenu abrégé pour l'exemple)

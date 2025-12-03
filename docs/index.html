@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>SumUp MDB Documentation</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+    <meta name="description" content="SumUp MDB Payment System Documentation">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
+
+    <!-- Theme: Simple Dark -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/docsify-themeable@0/dist/css/theme-simple-dark.css"
+        id="theme-dark">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/docsify-themeable@0/dist/css/theme-simple.css"
+        id="theme-light" disabled>
+
+    <style>
+        :root {
+            --base-font-size: 16px;
+            --theme-color: #42b983;
+            --sidebar-width: 300px;
+        }
+
+        .sidebar-nav>ul>li>a {
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+
+        /* Theme Switcher Button */
+        .theme-switcher {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            background: var(--theme-color);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            cursor: pointer;
+            font-size: 24px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .theme-switcher:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+        }
+
+        .theme-switcher:active {
+            transform: scale(0.95);
+        }
+
+        /* Sidebar Title */
+        .sidebar-nav>h1 {
+            text-align: center;
+            padding: 20px 0;
+            margin: 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .sidebar-nav>h1 a {
+            text-decoration: none;
+            color: var(--theme-color);
+            font-size: 1.5em;
+            font-weight: bold;
+        }
+
+        .sidebar-nav>h1 a:hover {
+            opacity: 0.8;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app"></div>
+
+    <!-- Theme Switcher Button -->
+    <button class="theme-switcher" onclick="toggleTheme()" title="Toggle Theme">
+        <span id="theme-icon">☀️</span>
+    </button>
+
+    <script>
+        // Theme Switcher Logic
+        function toggleTheme() {
+            const darkTheme = document.getElementById('theme-dark');
+            const lightTheme = document.getElementById('theme-light');
+            const icon = document.getElementById('theme-icon');
+
+            if (darkTheme.disabled) {
+                // Switch to dark
+                darkTheme.disabled = false;
+                lightTheme.disabled = true;
+                icon.textContent = '☀️';
+                localStorage.setItem('theme', 'dark');
+            } else {
+                // Switch to light
+                darkTheme.disabled = true;
+                lightTheme.disabled = false;
+                icon.textContent = '🌙';
+                localStorage.setItem('theme', 'light');
+            }
+        }
+
+        // Load saved theme on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            const darkTheme = document.getElementById('theme-dark');
+            const lightTheme = document.getElementById('theme-light');
+            const icon = document.getElementById('theme-icon');
+
+            if (savedTheme === 'light') {
+                darkTheme.disabled = true;
+                lightTheme.disabled = false;
+                icon.textContent = '🌙';
+            }
+        });
+    </script>
+
+    <script>
+        window.docsify = {
+            name: '<a href="/#/">SumUp MDB PoC</a>',
+            nameLink: '/',
+            repo: '',
+            loadSidebar: true,
+            loadNavbar: false,
+            coverpage: true,
+            auto2top: true,
+            search: {
+                placeholder: 'Search docs...',
+                noData: 'No results!',
+                depth: 6
+            },
+            copyCode: {
+                buttonText: 'Copy',
+                errorText: 'Error',
+                successText: 'Copied'
+            }
+        }
+    </script>
+
+    <!-- Docsify v4 -->
+    <script src="//cdn.jsdelivr.net/npm/docsify@4"></script>
+
+    <!-- Plugins -->
+    <script src="//cdn.jsdelivr.net/npm/docsify/lib/plugins/search.min.js"></script>
+    <script src="//cdn.jsdelivr.net/npm/docsify/lib/plugins/zoom-image.min.js"></script>
+    <script src="//cdn.jsdelivr.net/npm/docsify-copy-code/dist/docsify-copy-code.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/docsify-themeable@0/dist/js/docsify-themeable.min.js"></script>
+
+    <!-- Mermaid -->
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'dark',
+            themeVariables: {
+                primaryColor: '#4a5568',
+                primaryTextColor: '#e2e8f0',
+                primaryBorderColor: '#718096',
+                lineColor: '#a0aec0',
+                secondaryColor: '#2d3748',
+                tertiaryColor: '#1a202c',
+                background: '#1a202c',
+                mainBkg: '#2d3748',
+                secondBkg: '#1a202c',
+                textColor: '#e2e8f0',
+                fontSize: '18px',
+                nodeBorder: '#718096',
+                clusterBkg: '#2d3748',
+                clusterBorder: '#4a5568',
+                edgeLabelBackground: '#1a202c'
+            },
+            flowchart: {
+                nodeSpacing: 80,
+                rankSpacing: 100,
+                padding: 20
+            },
+            sequence: {
+                actorMargin: 80,
+                width: 200,
+                height: 80,
+                boxMargin: 15
+            }
+        });
+        window.mermaid = mermaid;
+    </script>
+    <script src="//unpkg.com/docsify-mermaid@2.0.0/dist/docsify-mermaid.js"></script>
+</body>
+
+</html>

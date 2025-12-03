@@ -1,0 +1,17 @@
+{
+    "name": "sumup-mdb-qibixx",
+    "version": "1.0.0",
+    "description": "SumUp MDB Payment System PoC",
+    "scripts": {
+        "prepare": "husky install"
+    },
+    "devDependencies": {
+        "@commitlint/cli": "^18.4.3",
+        "@commitlint/config-conventional": "^18.4.3",
+        "husky": "^8.0.3"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/your-repo/sumup-mdb-qibixx.git"
+    }
+}
