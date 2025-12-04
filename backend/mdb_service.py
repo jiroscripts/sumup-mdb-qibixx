@@ -88,10 +88,10 @@ class MDBService:
                             line, self.buffer = self.buffer.split(b'\n', 1)
                             self._handle_message(line.decode('utf-8').strip())
                 else:
-                    time.sleep(1)
+                    time.sleep(0.1)
             except Exception as e:
                 logger.error(f"Error in MDB loop: {e}")
-                time.sleep(1)
+                time.sleep(0.1)
 
     def _handle_message(self, message):
         logger.info(f"Received MDB Message: {message}")

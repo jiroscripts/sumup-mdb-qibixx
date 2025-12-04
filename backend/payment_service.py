@@ -15,37 +15,32 @@ class PaymentService:
     def _get_token(self):
         """
         Authenticates with SumUp to get a Bearer token.
-        TODO: Implement proper token refresh logic.
         """
         if self.access_token and time.time() < self.token_expiry:
             return self.access_token
 
-        # TODO: This is a placeholder. Real implementation needs Client Credentials Flow.
-        # For POC, we might just assume the user puts a valid token in .env or we implement the flow.
-        # Let's implement a basic Client Credentials flow.
-        
+        # MOCK MODE Check
+        if Config.SUMUP_CLIENT_ID == "your_client_id" or Config.SUMUP_CLIENT_ID == "demo_client_id":
+            logger.warning("Using MOCK SumUp Token. Update .env for real payments.")
+            return "mock_token_12345"
+
+        # REAL MODE: Client Credentials Flow
         url = f"{Config.SUMUP_API_URL}/token"
         payload = {
             "grant_type": "client_credentials",
             "client_id": Config.SUMUP_CLIENT_ID,
             "client_secret": Config.SUMUP_CLIENT_SECRET,
-            "scope": "payments" # Adjust scope as needed
+            "scope": "payments"
         }
         
         try:
-            # response = requests.post(url, data=payload)
-            # response.raise_for_status()
-            # data = response.json()
-            # self.access_token = data["access_token"]
-            # self.token_expiry = time.time() + data["expires_in"] - 60
-            
-            # MOCK TOKEN for POC if credentials are default
-            if Config.SUMUP_CLIENT_ID == "your_client_id":
-                logger.warning("Using MOCK SumUp Token. Update .env for real payments.")
-                return "mock_token_12345"
-                
-            # return self.access_token
-            pass
+            response = requests.post(url, data=payload)
+            response.raise_for_status()
+            data = response.json()
+            self.access_token = data["access_token"]
+            # Expire 60s before actual expiry to be safe
+            self.token_expiry = time.time() + data.get("expires_in", 3600) - 60
+            return self.access_token
         except Exception as e:
             logger.error(f"Failed to get SumUp token: {e}")
             return None

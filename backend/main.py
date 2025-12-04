@@ -74,9 +74,8 @@ def on_vend_request(amount):
     }))
 
     # 4. Start Polling for Payment Status (Background Task)
-    # For POC, we'll just simulate a delay or wait for a "Simulate Payment" call
-    # In a real app, we'd have a background task polling `payment_service.check_status`
-    pass
+    # TODO: Implement background task to poll payment_service.check_status(checkout['id'])
+    # For POC, we rely on the "Simulate Payment" button or webhook callbacks.
 
 # --- Lifecycle ---
 @app.on_event("startup")

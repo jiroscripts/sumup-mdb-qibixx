@@ -13,48 +13,68 @@ function App() {
     const ws = useRef(null);
 
     useEffect(() => {
-        ws.current = new WebSocket(WS_URL);
+        let timeoutId = null;
 
-        ws.current.onopen = () => {
-            console.log("WebSocket Connected");
+        const connectWebSocket = () => {
+            ws.current = new WebSocket(WS_URL);
+
+            ws.current.onopen = () => {
+                console.log("WebSocket Connected");
+            };
+
+            ws.current.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                console.log("WS Message:", data);
+
+                switch (data.type) {
+                    case "STATE_CHANGE":
+                        setStatus(data.state);
+                        if (data.state === "PROCESSING") setMessage("Processing Request...");
+                        if (data.state === "SUCCESS") {
+                            setMessage("Payment Approved! Dispensing...");
+                            setTimeout(() => {
+                                setStatus("IDLE");
+                                setMessage("Ready for order");
+                                setQrData(null);
+                            }, 5000);
+                        }
+                        break;
+                    case "SHOW_QR":
+                        setStatus("SHOW_QR");
+                        setQrData(data.qr_url);
+                        setAmount(data.amount);
+                        setCheckoutId(data.checkout_id);
+                        setMessage(`Please pay €${data.amount.toFixed(2)}`);
+                        break;
+                    case "ERROR":
+                        setStatus("ERROR");
+                        setMessage(data.message);
+                        setTimeout(() => setStatus("IDLE"), 3000);
+                        break;
+                    default:
+                        break;
+                }
+            };
+
+            ws.current.onclose = () => {
+                console.log("WebSocket Disconnected. Reconnecting...");
+                timeoutId = setTimeout(connectWebSocket, 3000);
+            };
+
+            ws.current.onerror = (err) => {
+                console.error("WebSocket Error:", err);
+                ws.current.close();
+            };
         };
 
-        ws.current.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            console.log("WS Message:", data);
-
-            switch (data.type) {
-                case "STATE_CHANGE":
-                    setStatus(data.state);
-                    if (data.state === "PROCESSING") setMessage("Processing Request...");
-                    if (data.state === "SUCCESS") {
-                        setMessage("Payment Approved! Dispensing...");
-                        setTimeout(() => {
-                            setStatus("IDLE");
-                            setMessage("Ready for order");
-                            setQrData(null);
-                        }, 5000);
-                    }
-                    break;
-                case "SHOW_QR":
-                    setStatus("SHOW_QR");
-                    setQrData(data.qr_url);
-                    setAmount(data.amount);
-                    setCheckoutId(data.checkout_id);
-                    setMessage(`Please pay €${data.amount.toFixed(2)}`);
-                    break;
-                case "ERROR":
-                    setStatus("ERROR");
-                    setMessage(data.message);
-                    setTimeout(() => setStatus("IDLE"), 3000);
-                    break;
-                default:
-                    break;
-            }
-        };
+        connectWebSocket();
 
         return () => {
-            if (ws.current) ws.current.close();
+            if (ws.current) {
+                ws.current.onclose = null; // Prevent reconnection on unmount
+                ws.current.close();
+            }
+            if (timeoutId) clearTimeout(timeoutId);
         };
     }, []);
 
