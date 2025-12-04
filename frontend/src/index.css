@@ -58,9 +58,11 @@ button {
   cursor: pointer;
   transition: border-color 0.25s;
 }
+
 button:hover {
   border-color: #646cff;
 }
+
 button:focus,
 button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
@@ -68,13 +70,64 @@ button:focus-visible {
 
 .debug-panel {
   position: fixed;
-  bottom: 10px;
-  right: 10px;
-  background: rgba(0,0,0,0.8);
-  padding: 10px;
-  border-radius: 8px;
-  font-size: 0.8em;
+  bottom: 20px;
+  right: 20px;
+  background: rgba(30, 30, 40, 0.95);
+  backdrop-filter: blur(10px);
+  padding: 20px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  width: 300px;
   text-align: left;
+  z-index: 1000;
+  transition: transform 0.3s ease;
+}
+
+.debug-panel h3 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  font-size: 1.1em;
+  color: #a0a0b0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.debug-panel button {
+  width: 100%;
+  margin-bottom: 10px;
+  background: #2d2d3a;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #e0e0e0;
+  padding: 10px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.debug-panel button:hover:not(:disabled) {
+  background: #3d3d4a;
+  border-color: #646cff;
+  transform: translateY(-1px);
+}
+
+.debug-panel button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #1a1a20;
+}
+
+.debug-panel button.action-vend {
+  border-left: 3px solid #e6b800;
+}
+
+.debug-panel button.action-pay {
+  border-left: 3px solid #28a745;
 }
 
 .qr-container {
@@ -94,7 +147,23 @@ button:focus-visible {
   font-size: 0.8em;
   margin-bottom: 10px;
 }
-.status-idle { background: #555; color: white; }
-.status-processing { background: #e6b800; color: black; }
-.status-success { background: #28a745; color: white; }
-.status-error { background: #dc3545; color: white; }
+
+.status-idle {
+  background: #555;
+  color: white;
+}
+
+.status-processing {
+  background: #e6b800;
+  color: black;
+}
+
+.status-success {
+  background: #28a745;
+  color: white;
+}
+
+.status-error {
+  background: #dc3545;
+  color: white;
+}

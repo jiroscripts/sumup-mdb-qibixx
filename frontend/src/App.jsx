@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import QRCode from 'qrcode.react';
 
-const API_URL = "http://localhost:8000";
-const WS_URL = "ws://localhost:8000/ws";
+const API_URL = "http://127.0.0.1:8000";
+const WS_URL = "ws://127.0.0.1:8000/ws";
 
 function App() {
     const [status, setStatus] = useState("IDLE"); // IDLE, PROCESSING, SHOW_QR, SUCCESS, ERROR
@@ -60,12 +60,38 @@ function App() {
 
     // Debug Functions
     const simulateVend = async () => {
-        await fetch(`${API_URL}/api/simulate/vend/2.50`, { method: 'POST' });
+        try {
+            const response = await fetch(`${API_URL}/api/simulate/vend/2.50`, { method: 'POST' });
+            if (!response.ok) {
+                const err = await response.text();
+                console.error('Simulate vend failed:', err);
+                setMessage('Simulate vend failed');
+                return;
+            }
+            console.log('Simulate vend OK');
+        } catch (e) {
+            console.error('Network error during simulate vend:', e);
+            setMessage('Network error');
+        }
     };
 
     const simulatePayment = async () => {
-        if (checkoutId) {
-            await fetch(`${API_URL}/api/simulate/payment/${checkoutId}`, { method: 'POST' });
+        if (!checkoutId) {
+            setMessage('No checkout ID');
+            return;
+        }
+        try {
+            const response = await fetch(`${API_URL}/api/simulate/payment/${checkoutId}`, { method: 'POST' });
+            if (!response.ok) {
+                const err = await response.text();
+                console.error('Simulate payment failed:', err);
+                setMessage('Simulate payment failed');
+                return;
+            }
+            console.log('Simulate payment OK');
+        } catch (e) {
+            console.error('Network error during simulate payment:', e);
+            setMessage('Network error');
         }
     };
 
@@ -94,12 +120,11 @@ function App() {
             {/* Debug Panel - Hidden in Production ideally */}
             <div className="debug-panel">
                 <h3>Debug Controls</h3>
-                <button onClick={simulateVend} disabled={status !== "IDLE"}>
-                    Simulate VMC Request (€2.50)
+                <button className="action-vend" onClick={simulateVend} disabled={status !== "IDLE"}>
+                    🛒 Simulate VMC Request (€2.50)
                 </button>
-                <br /><br />
-                <button onClick={simulatePayment} disabled={status !== "SHOW_QR"}>
-                    Simulate Successful Payment
+                <button className="action-pay" onClick={simulatePayment} disabled={status !== "SHOW_QR"}>
+                    💳 Simulate Successful Payment
                 </button>
             </div>
         </div>
