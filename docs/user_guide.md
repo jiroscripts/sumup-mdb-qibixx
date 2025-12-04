@@ -17,30 +17,11 @@ git clone <votre-repo>
 cd sumup-mdb-qibixx
 ```
 
-### Étape 2 : Rendre le Script Exécutable
+### Étape 2 : Installer les Dépendances
 
 ```bash
-chmod +x run.sh
+make install
 ```
-
-### Étape 3 : Installer les Dépendances
-
-**Backend (Python) :**
-```bash
-cd backend
-pip install -r requirements.txt
-cd ..
-```
-
-**Frontend (React) :**
-```bash
-cd frontend
-npm install
-cd ..
-```
-
-> [!TIP]
-> Le script `run.sh` ne réinstalle pas les dépendances à chaque lancement pour gagner du temps. Vous ne devez faire cette étape qu'**une seule fois**.
 
 ---
 
@@ -49,7 +30,7 @@ cd ..
 Pour démarrer **tous les services** en une seule commande :
 
 ```bash
-./run.sh
+make dev
 ```
 
 **Ce qui démarre :**

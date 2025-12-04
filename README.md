@@ -47,8 +47,11 @@ For detailed information, please refer to the following guides:
 ## Running the System
 
 ```bash
-chmod +x run.sh
-./run.sh
+# Run the system
+make dev
+
+# Install dependencies
+make install
 ```
 
 -   **Frontend**: [http://localhost:5173](http://localhost:5173)

@@ -57,3 +57,8 @@ Pour tester votre message avant de commiter :
 ```bash
 echo "feat: add new feature" | npx commitlint
 ```
+
+Ou utilisez la commande make :
+```bash
+make lint
+```
