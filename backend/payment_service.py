@@ -11,6 +11,8 @@ class PaymentService:
     def __init__(self):
         self.access_token = None
         self.token_expiry = 0
+        # In-memory store for mock transactions: {checkout_id: status}
+        self.mock_transactions = {}
 
     def _get_token(self):
         """
@@ -54,9 +56,13 @@ class PaymentService:
             return {"error": "Authentication failed"}
 
         if token == "mock_token_12345":
+            checkout_id = f"mock_chk_{int(time.time())}"
+            # Store initial state as PENDING
+            self.mock_transactions[checkout_id] = "PENDING"
+            
             # Return a mock checkout response
             return {
-                "id": f"mock_chk_{int(time.time())}",
+                "id": checkout_id,
                 "checkout_reference": "REF123",
                 "amount": amount,
                 "currency": currency,
@@ -92,12 +98,9 @@ class PaymentService:
         Checks the status of a payment.
         """
         if checkout_id.startswith("mock_chk_"):
-            # Mock logic: Always return PAID after 5 seconds? 
-            # For now, let's just say it's PENDING until we simulate a payment event.
-            # We can handle this in the main loop or just return PAID immediately for the demo?
-            # Let's return PENDING by default, and maybe have a "Simulate Payment" button too?
-            # Or just random for now?
-            return {"status": "PAID"} # Auto-approve for POC convenience unless we add a button.
+            # Return the stored status, default to PENDING if not found
+            status = self.mock_transactions.get(checkout_id, "PENDING")
+            return {"status": status}
 
         token = self._get_token()
         url = f"{Config.SUMUP_API_URL}/v0.1/checkouts/{checkout_id}"
@@ -110,3 +113,12 @@ class PaymentService:
         except Exception as e:
             logger.error(f"Failed to check status: {e}")
             return {"error": str(e)}
+
+    def mock_update_status(self, checkout_id: str, status: str):
+        """
+        Helper to manually update the status of a mock transaction.
+        """
+        if checkout_id in self.mock_transactions:
+            self.mock_transactions[checkout_id] = status
+            return True
+        return False

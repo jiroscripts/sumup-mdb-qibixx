@@ -20,6 +20,7 @@ help:
 	@echo "  dev-frontend Start only the frontend"
 	@echo "  dev-docs     Start only the documentation server"
 	@echo "  clean        Remove build artifacts and cache"
+	@echo "  stop         Stop all running services (kills ports 8000, 5173, 3000)"
 	@echo "  lint         Run linters (commitlint, etc)"
 
 # --- Installation ---
@@ -52,6 +53,11 @@ dev-frontend:
 
 dev-docs:
 	@$(PYTHON) -m http.server 3000 --directory docs
+
+stop:
+	@echo "Stopping all services..."
+	@-fuser -k 8000/tcp 5173/tcp 3000/tcp > /dev/null 2>&1 || true
+	@echo "${GREEN}Services stopped!${NC}"
 
 # --- Maintenance ---
 clean:
