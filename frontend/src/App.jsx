@@ -13,11 +13,6 @@ function App() {
     const ws = useRef(null);
 
     const [wsStatus, setWsStatus] = useState("DISCONNECTED");
-    const [logs, setLogs] = useState([]);
-
-    const addLog = (msg) => {
-        setLogs(prev => [`${new Date().toLocaleTimeString()} - ${msg}`, ...prev].slice(0, 10));
-    };
 
     useEffect(() => {
         let socket = new WebSocket(WS_URL);
@@ -26,13 +21,11 @@ function App() {
         socket.onopen = () => {
             console.log("WebSocket Connected");
             setWsStatus("CONNECTED");
-            addLog("WS Connected");
         };
 
         socket.onmessage = (event) => {
             const data = JSON.parse(event.data);
             console.log("WS Message:", data);
-            addLog(`WS Rx: ${data.type}`);
 
             switch (data.type) {
                 case "STATE_CHANGE":
@@ -67,11 +60,10 @@ function App() {
         socket.onclose = (event) => {
             console.log("WebSocket Disconnected", event);
             setWsStatus("DISCONNECTED");
-            addLog(`WS Disconnected: ${event.code}`);
 
             // Simple reconnect logic
             setTimeout(() => {
-                // If the component is still mounted (we can't easily check this without ref, 
+                // If the component is still mounted (we can't easily check this without ref,
                 // but we can check if ws.current is still THIS socket or null)
                 // Actually, let's just trigger a re-render or let the user reload for now.
                 // Or better: The dependency array is empty, so this effect runs once.
@@ -82,7 +74,6 @@ function App() {
 
         socket.onerror = (err) => {
             console.error("WebSocket Error:", err);
-            addLog("WS Error");
         };
 
         return () => {
@@ -92,7 +83,6 @@ function App() {
 
     // Debug Functions
     const simulateVend = async () => {
-        addLog("Simulating Vend...");
         try {
             // API_URL is "/api", so we append "/simulate/vend/..." -> "/api/simulate/vend/..."
             const response = await fetch(`${API_URL}/simulate/vend/2.50`, { method: 'POST' });
@@ -100,40 +90,32 @@ function App() {
                 const err = await response.text();
                 console.error('Simulate vend failed:', err);
                 setMessage('Simulate vend failed');
-                addLog(`Vend Failed: ${err}`);
                 return;
             }
             console.log('Simulate vend OK');
-            addLog("Vend Req Sent");
         } catch (e) {
             console.error('Network error during simulate vend:', e);
             setMessage('Network error');
-            addLog(`Vend Net Error: ${e.message}`);
         }
     };
 
     const simulatePayment = async () => {
         if (!checkoutId) {
             setMessage('No checkout ID');
-            addLog("No Checkout ID");
             return;
         }
-        addLog(`Simulating Pay: ${checkoutId}`);
         try {
             const response = await fetch(`${API_URL}/simulate/payment/${checkoutId}`, { method: 'POST' });
             if (!response.ok) {
                 const err = await response.text();
                 console.error('Simulate payment failed:', err);
                 setMessage('Simulate payment failed');
-                addLog(`Pay Failed: ${err}`);
                 return;
             }
             console.log('Simulate payment OK');
-            addLog("Pay Req Sent");
         } catch (e) {
             console.error('Network error during simulate payment:', e);
             setMessage('Network error');
-            addLog(`Pay Net Error: ${e.message}`);
         }
     };
 
@@ -162,10 +144,6 @@ function App() {
                 {status === "PROCESSING" && (
                     <div className="loader">Loading...</div>
                 )}
-
-                <div style={{ textAlign: 'left', fontSize: '0.8em', color: '#888', marginTop: '20px', maxHeight: '100px', overflowY: 'auto', border: '1px solid #444', padding: '5px' }}>
-                    {logs.map((log, i) => <div key={i}>{log}</div>)}
-                </div>
             </div>
 
             {/* Debug Panel - Hidden in Production ideally */}
@@ -173,9 +151,6 @@ function App() {
                 <h3>Debug Controls <span style={{ fontSize: '0.8em', fontWeight: 'normal' }}>({status})</span></h3>
                 <button className="action-vend" onClick={simulateVend}>
                     🛒 Simulate VMC Request (€2.50)
-                </button>
-                <button className="action-pay" onClick={simulatePayment}>
-                    💳 Simulate Successful Payment
                 </button>
                 <button className="action-pay" onClick={simulatePayment}>
                     💳 Simulate Successful Payment
