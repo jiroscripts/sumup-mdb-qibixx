@@ -91,31 +91,30 @@ const PaymentPage = () => {
             }
 
             // B. If not paid, Load SDK
-            if (!document.getElementById('sumup-sdk')) {
-                const script = document.createElement('script');
-                script.id = 'sumup-sdk';
-                script.src = "https://gateway.sumup.com/gateway/ecom/card/v2/sdk.js";
-                script.async = true;
-
-                script.onload = () => mountWidget(checkoutId);
-                script.onerror = () => {
-                    setStatus('failed');
-                    setErrorDetails({ message: "Failed to load SumUp SDK" });
-                };
-                document.body.appendChild(script);
+            if (window.SumUpCard) {
+                mountWidget(checkoutId);
             } else {
-                // SDK already loaded (navigated back or hot reload)
-                if (window.SumUpCard) {
-                    mountWidget(checkoutId);
+                if (!document.getElementById('sumup-sdk')) {
+                    const script = document.createElement('script');
+                    script.id = 'sumup-sdk';
+                    script.src = "https://gateway.sumup.com/gateway/ecom/card/v2/sdk.js";
+                    script.async = true;
+
+                    script.onload = () => mountWidget(checkoutId);
+                    script.onerror = () => {
+                        setStatus('failed');
+                        setErrorDetails({ message: "Failed to load SumUp SDK" });
+                    };
+                    document.body.appendChild(script);
                 } else {
-                    // Wait a bit? Or just rely on onload if it's still loading
-                    // For safety in React dev mode:
-                    const interval = setInterval(() => {
-                        if (window.SumUpCard) {
-                            clearInterval(interval);
-                            mountWidget(checkoutId);
-                        }
-                    }, 100);
+                    // Script tag exists but window.SumUpCard not ready?
+                    // This is rare. We can just attach a listener to the existing script if needed,
+                    // but for simplicity, let's assume if tag exists, it will load.
+                    // If we really need to handle this edge case, we would need to track script load state globally.
+                    // For this project, a simple retry or reload by user is acceptable.
+                    console.log("SDK script already present, waiting for load...");
+                    const existingScript = document.getElementById('sumup-sdk');
+                    existingScript.addEventListener('load', () => mountWidget(checkoutId));
                 }
             }
         });

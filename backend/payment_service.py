@@ -12,6 +12,7 @@ class PaymentService:
     def __init__(self):
         self.access_token = None
         self.token_expiry = 0
+        self.base_url = Config.SUMUP_API_URL
 
     def _get_token(self):
         """
@@ -23,11 +24,6 @@ class PaymentService:
 
         if self.access_token and time.time() < self.token_expiry:
             return self.access_token
-
-        # MOCK MODE Check
-        if Config.SUMUP_CLIENT_ID == "your_client_id" or Config.SUMUP_CLIENT_ID == "demo_client_id":
-            logger.warning("Using MOCK SumUp Token. Update .env for real payments.")
-            return "mock_token_12345"
 
         # REAL MODE: Client Credentials Flow
         url = f"{Config.SUMUP_API_URL}/token"
@@ -60,8 +56,8 @@ class PaymentService:
         
         # 2. Fetch from API using Token/Key
         token = self._get_token()
-        if not token or token == "mock_token_12345":
-             return "merchant@example.com"
+        if not token:
+             return None
 
         url = f"{Config.SUMUP_API_URL}/v0.1/me"
         headers = {"Authorization": f"Bearer {token}"}
@@ -78,6 +74,30 @@ class PaymentService:
             logger.error(f"Failed to fetch merchant profile: {e}")
             return None
 
+    def _get_frontend_url(self):
+        """
+        Resolves the frontend URL.
+        Priority:
+        1. FRONTEND_URL env var (Tunnel/Prod)
+        2. Auto-detected Local IP (Dev)
+        3. Localhost fallback
+        """
+        url = os.getenv("FRONTEND_URL")
+        if url:
+            return url.rstrip('/')
+
+        try:
+            # "Exotic" but effective way to get the real local IP
+            import socket
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            local_ip = s.getsockname()[0]
+            s.close()
+        except Exception:
+            local_ip = "127.0.0.1"
+            
+        return f"http://{local_ip}:5174"
+
     def create_checkout(self, amount: float, currency: str = "EUR"):
         """
         Creates a checkout session via SumUp API.
@@ -86,49 +106,26 @@ class PaymentService:
         if not token:
             return {"error": "Authentication failed"}
 
-        if token == "mock_token_12345":
-            checkout_id = f"mock_chk_{int(time.time())}"
-            self.mock_transactions[checkout_id] = "PENDING"
-            return {
-                "id": checkout_id,
-                "amount": amount,
-                "currency": currency,
-                "status": "PENDING",
-                "qr_code_url": f"https://chart.googleapis.com/chart?chs=300x300&cht=qr&chl=sumup_mock_payment_{amount}", 
-                "message": "MOCK CHECKOUT CREATED"
-            }
-
-        url = f"{Config.SUMUP_API_URL}/v0.1/checkouts"
+        # Real API Call
+        url = f"{self.base_url}/v0.1/checkouts"
         headers = {
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json"
         }
         
-        # Determine payee
         pay_to = self._get_merchant_email()
         if not pay_to:
              return {"error": "Could not resolve Merchant Email/Code."}
 
-        # Determine Frontend URL (for return_url and QR code)
-        frontend_url = os.getenv("FRONTEND_URL")
-        if not frontend_url:
-            try:
-                import socket
-                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                s.connect(("8.8.8.8", 80))
-                local_ip = s.getsockname()[0]
-                s.close()
-            except Exception:
-                local_ip = "127.0.0.1"
-            frontend_url = f"http://{local_ip}:5174"
+        frontend_url = self._get_frontend_url()
 
         payload = {
             "checkout_reference": f"ORDER-{int(time.time())}",
-            "amount": round(amount, 2), # Ensure 2 decimals
+            "amount": round(amount, 2),
             "currency": currency,
             "pay_to_email": pay_to, 
             "description": "Vending Machine Purchase",
-            "return_url": f"{frontend_url}/payment", # Redirect back to payment page to handle success
+            "return_url": f"{frontend_url}/payment",
             "customer_email": "customer@example.com" 
         }
         
@@ -141,16 +138,15 @@ class PaymentService:
             response = requests.post(url, json=payload, headers=headers)
             response.raise_for_status()
             data = response.json()
-            logger.info(f"Checkout Created: {data}")
+            logger.info(f"Checkout Created: {data.get('id')}")
             
-            # Use the determined frontend_url for QR code
-            payment_link = f"{frontend_url}/payment?checkout_id={data['id']}"
-            data["qr_code_url"] = payment_link
+            # Construct QR Code URL
+            data["qr_code_url"] = f"{frontend_url}/payment?checkout_id={data['id']}"
             return data
         except Exception as e:
             logger.error(f"Failed to create checkout: {e}")
             if hasattr(e, 'response') and e.response is not None:
-                logger.error(f"SumUp API Response: {e.response.text}")
+                 logger.error(f"SumUp Error Body: {e.response.text}")
             return {"error": str(e)}
 
     def check_status(self, checkout_id: str):
