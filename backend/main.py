@@ -102,7 +102,7 @@ async def websocket_endpoint(websocket: WebSocket):
         manager.disconnect(websocket)
 
 @app.post("/api/simulate/vend/{amount}")
-async def simulate_vend(amount: float):
+async def simulate_vend(amount: float = 2.50):
     """Debug Endpoint: Simulate a VMC requesting a vend"""
     if mdb_service:
         mdb_service.simulate_vend_request(amount)
@@ -110,16 +110,41 @@ async def simulate_vend(amount: float):
 
 @app.post("/api/simulate/payment/{checkout_id}")
 async def simulate_payment(checkout_id: str):
-    """Debug Endpoint: Simulate a successful payment for a checkout"""
-    # 1. Notify Frontend
-    await manager.broadcast({"type": "STATE_CHANGE", "state": "SUCCESS"})
-    
-    # 2. Tell MDB Service to Approve
-    if mdb_service:
-        mdb_service.approve_vend()
+    """
+    Callback Endpoint: Verify payment status and trigger vend.
+    SECURED: Checks with SumUp API before dispensing.
+    """
+    if not payment_service:
+        return {"error": "Payment service not initialized"}
+
+    # 1. Verify with SumUp (Server-to-Server check)
+    payment_info = payment_service.check_status(checkout_id)
+    status = payment_info.get("status")
+
+    # 2. Check if PAID
+    if status in ["PAID", "SUCCESSFUL"]:
+        # Notify Frontend
+        await manager.broadcast({"type": "STATE_CHANGE", "state": "SUCCESS"})
         
-    # 3. Reset to IDLE after a delay (handled by frontend or another event)
-    return {"status": "payment_simulated"}
+        # Approve Vend
+        if mdb_service:
+            logger.info("Payment Validated. Approving Vend.")
+            mdb_service.approve_vend()
+        
+        return {"status": "payment_verified", "sumup_status": status}
+    else:
+        logger.warning(f"Payment verification failed. Status: {status}")
+        return {"status": "verification_failed", "sumup_status": status}
+
+@app.get("/api/payment-status/{checkout_id}")
+async def get_payment_status(checkout_id: str):
+    """
+    Check status of a checkout. Used by Frontend on load/redirect.
+    """
+    if not payment_service:
+        return {"error": "Payment service not initialized"}
+    
+    return payment_service.check_status(checkout_id)
 
 if __name__ == "__main__":
     uvicorn.run(app, host=Config.HOST, port=Config.PORT)

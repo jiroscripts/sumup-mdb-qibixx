@@ -121,7 +121,7 @@ class MDBService:
             self.serial.write(msg)
 
     # --- Simulation Helpers ---
-    def simulate_vend_request(self, amount: float):
+    def simulate_vend_request(self, amount: float = 2.50):
         """Injects a fake VEND_REQ message into the serial reader"""
         if isinstance(self.serial, MockSerial):
             msg = f"VEND_REQ: {amount:.2f}\n".encode('utf-8')

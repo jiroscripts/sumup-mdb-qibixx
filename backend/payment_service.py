@@ -1,6 +1,7 @@
 import requests
 import time
 import logging
+import os
 from .config import Config
 
 # Configure logging
@@ -108,13 +109,27 @@ class PaymentService:
         if not pay_to:
              return {"error": "Could not resolve Merchant Email/Code."}
 
+        # Determine Frontend URL (for return_url and QR code)
+        frontend_url = os.getenv("FRONTEND_URL")
+        if not frontend_url:
+            try:
+                import socket
+                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                s.connect(("8.8.8.8", 80))
+                local_ip = s.getsockname()[0]
+                s.close()
+            except Exception:
+                local_ip = "127.0.0.1"
+            frontend_url = f"http://{local_ip}:5174"
+
         payload = {
             "checkout_reference": f"ORDER-{int(time.time())}",
-            "amount": amount,
+            "amount": round(amount, 2), # Ensure 2 decimals
             "currency": currency,
             "pay_to_email": pay_to, 
             "description": "Vending Machine Purchase",
-            "return_url": "http://localhost:5173/success" # Required for Hosted Checkout
+            "return_url": f"{frontend_url}/payment", # Redirect back to payment page to handle success
+            "customer_email": "customer@example.com" 
         }
         
         # Handle merchant code vs email
@@ -128,29 +143,8 @@ class PaymentService:
             data = response.json()
             logger.info(f"Checkout Created: {data}")
             
-            # Extract or Construct QR Code URL
-            # Ideally, data should contain 'next_step' or a link.
-            # If not, we try the standard hosted checkout URL.
-            # Note: For v0.1, https://sumup.io/checkout/{id} is often the hosted page.
-            
-            payment_link = data.get("next_step")
-            if not payment_link:
-                 # Construct URL for the local Payment Web App
-                 # We dynamically detect the local IP to ensure the QR code works on mobile devices on the same network.
-                 try:
-                     import socket
-                     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                     s.connect(("8.8.8.8", 80))
-                     local_ip = s.getsockname()[0]
-                     s.close()
-                 except Exception:
-                     local_ip = "127.0.0.1" # Fallback to localhost
-                 
-                 # Port 5174 is the default for the Web App (or 5175 if busy)
-                 # Ideally this port should be configurable, but 5174 is our target.
-                 frontend_url = f"http://{local_ip}:5174" 
-                 payment_link = f"{frontend_url}/payment?checkout_id={data['id']}"
-            
+            # Use the determined frontend_url for QR code
+            payment_link = f"{frontend_url}/payment?checkout_id={data['id']}"
             data["qr_code_url"] = payment_link
             return data
         except Exception as e:
