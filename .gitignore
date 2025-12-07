@@ -89,3 +89,11 @@ Desktop.ini
 *.pid.lock
 .coverage
 .nyc_output
+
+# Cloudflared
+cloudflared
+*.deb
+
+# Security
+certs/
+*.pem
