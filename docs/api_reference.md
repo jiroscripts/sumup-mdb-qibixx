@@ -17,6 +17,11 @@ Cette table est le cœur du système. Elle stocke l'état de chaque transaction.
 | `checkout_id` | `text` | ID du checkout SumUp (optionnel). |
 | `metadata` | `jsonb` | Données additionnelles (ex: `machine_id`). |
 
+### Sécurité (RLS)
+
+*   **Lecture (SELECT)** : Publique (Tout le monde peut voir les sessions).
+*   **Écriture (INSERT/UPDATE)** : **Restreinte au Service Role**. Seul le MDB Bridge et les Edge Functions peuvent créer ou modifier des sessions. Le Kiosk et l'App Mobile n'ont pas le droit d'écriture.
+
 ## Protocole Realtime
 
 Le Bridge et le Kiosk s'abonnent aux changements sur la table `vend_sessions`.

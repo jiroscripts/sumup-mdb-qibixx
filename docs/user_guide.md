@@ -135,3 +135,17 @@ Pour utiliser le **vrai matériel** (Qibixx Hat + Distributeur) :
 
 > [!WARNING]
 > Assurez-vous que le port série est correctement configuré avant de désactiver le mode simulation !
+
+## 🛡️ Sécurité & Production
+
+Ce projet est configuré pour être **Production Ready**.
+
+### 1. Mode Simulation
+Dans `backend/config.py` (ou `.env`), la variable `MDB_SIMULATION_MODE` contrôle le comportement :
+*   **True** : Le système génère automatiquement des demandes de vente toutes les 10s pour tester.
+*   **False** : Le système attend un vrai signal du distributeur (VMC) via le port série.
+
+### 2. Règles de Sécurité (RLS)
+La base de données Supabase est verrouillée :
+*   **Le Public (Kiosk/App)** ne peut que **LIRE** les sessions. Impossible de créer de fausses ventes ou de valider un paiement manuellement.
+*   **Le Système (Bridge/Edge Functions)** a les droits d'écriture via la `SERVICE_ROLE_KEY`.
