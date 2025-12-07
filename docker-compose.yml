@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  # 🐍 Backend (Python Listener)
+  backend:
+    build: ./backend
+    container_name: sumup-backend
+    restart: always
+    env_file:
+      - .env
+    environment:
+      - MDB_SIMULATION_MODE=True # Set to False for Real Hardware
+      - MACHINE_ID=${MACHINE_ID:-pi_kiosk_1}
+    # devices:
+      # - /dev/ttyUSB0:/dev/ttyUSB0 # ⚠️ Uncomment for Real Hardware Access
+    volumes:
+      - ./backend:/app # Hot Reload for Dev (Optional)
+
+  # 🖥️ Frontend (Kiosk Display)
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        - VITE_SUPABASE_URL=${SUPABASE_URL}
+        - VITE_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+        - VITE_MACHINE_ID=${MACHINE_ID:-pi_kiosk_1}
+        - VITE_WEB_APP_URL=${FRONTEND_URL:-http://localhost:5174}
+    container_name: sumup-frontend
+    restart: always
+    ports:
+      - "8080:80" # Maps port 80 of container to port 8080 of host
+    depends_on:
+      - backend
+
+  # 📱 Web App (Client Mobile App - Optional)
+  # Usually hosted on Vercel/Netlify, but can be self-hosted here
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+      args:
+        - VITE_SUPABASE_URL=${SUPABASE_URL}
+        - VITE_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+    container_name: sumup-web-app
+    restart: always
+    ports:
+      - "5174:80"
