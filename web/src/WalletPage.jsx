@@ -9,6 +9,22 @@ const WalletPage = () => {
     const [widgetStatus, setWidgetStatus] = useState('idle'); // idle, mounting, ready, paid, failed
     const widgetMounted = useRef(false);
 
+    // 5. Login UI
+    const [email, setEmail] = useState('');
+    const [emailSent, setEmailSent] = useState(false);
+
+    const fetchBalance = async (userId) => {
+        const { data, error } = await supabase
+            .from('wallets')
+            .select('balance')
+            .eq('user_id', userId)
+            .maybeSingle();
+
+        if (!error && data) {
+            setBalance(data.balance);
+        }
+    };
+
     // 1. Auth & Initial Data
     useEffect(() => {
         supabase.auth.getSession().then(({ data: { session } }) => {
@@ -51,18 +67,6 @@ const WalletPage = () => {
             supabase.removeChannel(channel);
         };
     }, [session]);
-
-    const fetchBalance = async (userId) => {
-        const { data, error } = await supabase
-            .from('wallets')
-            .select('balance')
-            .eq('user_id', userId)
-            .maybeSingle();
-
-        if (!error && data) {
-            setBalance(data.balance);
-        }
-    };
 
     const handleLogout = async () => {
         await supabase.auth.signOut();
@@ -113,7 +117,7 @@ const WalletPage = () => {
                     locale: 'fr-FR',
                     showGooglePay: true,
                     showApplePay: true,
-                    onResponse: function (type, body) {
+                    onResponse: function (type) {
                         if (type === 'success') {
                             // Webhook will handle the credit. We just update UI.
                             setWidgetStatus('paid');
@@ -129,7 +133,7 @@ const WalletPage = () => {
                 });
                 widgetMounted.current = true;
                 setWidgetStatus('ready');
-            } catch (e) {
+            } catch {
                 setWidgetStatus('failed');
             }
         };
@@ -139,8 +143,7 @@ const WalletPage = () => {
 
 
     // 5. Login UI
-    const [email, setEmail] = useState('');
-    const [emailSent, setEmailSent] = useState(false);
+    // State moved to top
 
     const handleLoginGoogle = async () => {
         await supabase.auth.signInWithOAuth({

@@ -29,8 +29,10 @@ const PaymentPage = () => {
     // 2. Fetch Session Data (Amount)
     useEffect(() => {
         if (!sessionId) {
-            setError("Session ID manquant");
-            setLoading(false);
+            setTimeout(() => {
+                setError("Session ID manquant");
+                setLoading(false);
+            }, 0);
             return;
         }
 
@@ -74,7 +76,7 @@ const PaymentPage = () => {
         setProcessing(true);
 
         try {
-            const { data, error } = await supabase.functions.invoke('process-payment', {
+            const { error } = await supabase.functions.invoke('process-payment', {
                 body: { session_id: sessionId }
             });
 

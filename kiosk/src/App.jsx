@@ -12,12 +12,55 @@ function App() {
     const [amount, setAmount] = useState(0);
     const [logs, setLogs] = useState([]);
 
-    const addLog = (msg) => {
+    const addLog = React.useCallback((msg) => {
         setLogs(prev => [`${new Date().toLocaleTimeString()} - ${msg}`, ...prev].slice(0, 10));
+    }, []);
+
+    const resetState = () => {
+        setStatus("IDLE");
+        setMessage("Ready for order");
+        setQrData(null);
+        setCurrentSessionId(null);
     };
 
+    const handleNewSession = React.useCallback((session) => {
+        setCurrentSessionId(session.id);
+        setAmount(session.amount);
+        // Generate URL for the mobile app
+        // Assuming the mobile app is hosted at the same domain but different port or path
+        // For dev: http://localhost:5174/payment?session_id=...
+        // For prod: https://votre-domaine.com/payment?session_id=...
+
+        // We'll use a hardcoded base URL for dev for now, or relative if served together
+        const baseUrl = import.meta.env.VITE_WEB_APP_URL || "http://localhost:5174";
+        const paymentUrl = `${baseUrl}/payment?session_id=${session.id}`;
+
+        addLog(`URL: ${paymentUrl}`); // Log URL for debug
+        console.log("Payment URL:", paymentUrl);
+
+        setQrData(paymentUrl);
+        setStatus("SHOW_QR");
+        setMessage(`Please pay €${session.amount} by scanning`);
+    }, [addLog]);
+
+    const handleSessionUpdate = React.useCallback((session) => {
+        if (session.status === 'PAID' || session.status === 'COMPLETED') {
+            setStatus("SUCCESS");
+            setMessage("Payment Approved! Dispensing...");
+            addLog("Payment Received!");
+
+            setTimeout(() => {
+                resetState();
+            }, 5000);
+        } else if (session.status === 'FAILED') {
+            setStatus("ERROR");
+            setMessage("Payment Failed or Cancelled");
+            setTimeout(() => resetState(), 3000);
+        }
+    }, [addLog]);
+
     useEffect(() => {
-        addLog("Connecting to Supabase Realtime...");
+        setTimeout(() => addLog("Connecting to Supabase Realtime..."), 0);
 
         const channel = supabase
             .channel('kiosk-updates')
@@ -42,50 +85,7 @@ function App() {
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [currentSessionId]); // Re-subscribe if currentSessionId changes? No, ref is better but let's keep it simple.
-
-    const handleNewSession = (session) => {
-        setCurrentSessionId(session.id);
-        setAmount(session.amount);
-        // Generate URL for the mobile app
-        // Assuming the mobile app is hosted at the same domain but different port or path
-        // For dev: http://localhost:5174/payment?session_id=...
-        // For prod: https://votre-domaine.com/payment?session_id=...
-
-        // We'll use a hardcoded base URL for dev for now, or relative if served together
-        const baseUrl = import.meta.env.VITE_WEB_APP_URL || "http://localhost:5174";
-        const paymentUrl = `${baseUrl}/payment?session_id=${session.id}`;
-
-        addLog(`URL: ${paymentUrl}`); // Log URL for debug
-        console.log("Payment URL:", paymentUrl);
-
-        setQrData(paymentUrl);
-        setStatus("SHOW_QR");
-        setMessage(`Please pay €${session.amount} by scanning`);
-    };
-
-    const handleSessionUpdate = (session) => {
-        if (session.status === 'PAID' || session.status === 'COMPLETED') {
-            setStatus("SUCCESS");
-            setMessage("Payment Approved! Dispensing...");
-            addLog("Payment Received!");
-
-            setTimeout(() => {
-                resetState();
-            }, 5000);
-        } else if (session.status === 'FAILED') {
-            setStatus("ERROR");
-            setMessage("Payment Failed or Cancelled");
-            setTimeout(() => resetState(), 3000);
-        }
-    };
-
-    const resetState = () => {
-        setStatus("IDLE");
-        setMessage("Ready for order");
-        setQrData(null);
-        setCurrentSessionId(null);
-    };
+    }, [currentSessionId, handleNewSession, handleSessionUpdate, addLog]);
 
     return (
         <div className="app-container" style={{ textAlign: 'center', padding: '20px', fontFamily: 'sans-serif', background: '#222', color: '#fff', minHeight: '100vh' }}>
