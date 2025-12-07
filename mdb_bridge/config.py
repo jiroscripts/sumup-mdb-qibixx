@@ -4,12 +4,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Config:
-    # SumUp API Configuration
-    # Option 1: API Key (Simpler, recommended for backend scripts)
-    SUMUP_API_KEY = os.getenv("SUMUP_API_KEY")
-    
-    SUMUP_MERCHANT_CODE = os.getenv("SUMUP_MERCHANT_CODE") # Optional if we fetch from API
-    SUMUP_API_URL = "https://api.sumup.com"
+    # Payment API Configuration
+    # Stripe keys are managed in Supabase Secrets or .env for local dev
 
     # MDB / Serial Configuration
     # Set to True to use Mock Serial (no hardware required)

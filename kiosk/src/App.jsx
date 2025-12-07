@@ -11,10 +11,24 @@ function App() {
     const [currentSessionId, setCurrentSessionId] = useState(null);
     const [amount, setAmount] = useState(0);
     const [logs, setLogs] = useState([]);
+    const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
 
     const addLog = React.useCallback((msg) => {
         setLogs(prev => [`${new Date().toLocaleTimeString()} - ${msg}`, ...prev].slice(0, 10));
     }, []);
+
+    useEffect(() => {
+        if (theme === 'dark') {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+        localStorage.setItem('theme', theme);
+    }, [theme]);
+
+    const toggleTheme = () => {
+        setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+    };
 
     const resetState = () => {
         setStatus("IDLE");
@@ -26,16 +40,11 @@ function App() {
     const handleNewSession = React.useCallback((session) => {
         setCurrentSessionId(session.id);
         setAmount(session.amount);
-        // Generate URL for the mobile app
-        // Assuming the mobile app is hosted at the same domain but different port or path
-        // For dev: http://localhost:5174/payment?session_id=...
-        // For prod: https://votre-domaine.com/payment?session_id=...
 
-        // We'll use a hardcoded base URL for dev for now, or relative if served together
         const baseUrl = import.meta.env.VITE_WEB_APP_URL || "http://localhost:5174";
         const paymentUrl = `${baseUrl}/payment?session_id=${session.id}`;
 
-        addLog(`URL: ${paymentUrl}`); // Log URL for debug
+        addLog(`URL: ${paymentUrl}`);
         console.log("Payment URL:", paymentUrl);
 
         setQrData(paymentUrl);
@@ -66,7 +75,6 @@ function App() {
             .channel('kiosk-updates')
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'vend_sessions' }, (payload) => {
                 const session = payload.new;
-                // Filter by machine_id
                 if (session.metadata?.machine_id !== MACHINE_ID) return;
 
                 addLog(`New Session: ${session.id} (${session.amount}€)`);
@@ -88,24 +96,57 @@ function App() {
     }, [currentSessionId, handleNewSession, handleSessionUpdate, addLog]);
 
     return (
-        <div className="app-container" style={{ textAlign: 'center', padding: '20px', fontFamily: 'sans-serif', background: '#222', color: '#fff', minHeight: '100vh' }}>
-            <h1>☕ Kiosk Display</h1>
-            <h2 style={{ color: status === 'SUCCESS' ? '#4caf50' : '#fff' }}>{message}</h2>
-
-            {status === "SHOW_QR" && qrData && (
-                <div className="qr-container" style={{ margin: '30px auto', background: 'white', padding: '20px', display: 'inline-block', borderRadius: '10px' }}>
-                    <QRCode value={qrData} size={256} />
-                    <p style={{ color: 'black', marginTop: '10px' }}>Scan to Pay {amount}€</p>
+        <div className="flex flex-col min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white p-6 text-center font-sans transition-colors duration-200">
+            <header className="mb-8 relative">
+                <button
+                    onClick={toggleTheme}
+                    className="absolute right-0 top-0 p-2 rounded-full text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                >
+                    {theme === 'dark' ? '☀️' : '🌙'}
+                </button>
+                <h1 className="text-4xl font-bold mb-2 flex items-center justify-center gap-3">
+                    <span className="text-5xl">☕</span>
+                    <span>Kiosk Display</span>
+                </h1>
+                <div className={`text-2xl font-semibold transition-colors duration-300 ${status === 'SUCCESS' ? 'text-green-600 dark:text-green-400' :
+                        status === 'ERROR' ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-200'
+                    }`}>
+                    {message}
                 </div>
-            )}
+            </header>
 
-            {status === "SUCCESS" && (
-                <div style={{ fontSize: '5em' }}>✅</div>
-            )}
+            <main className="flex-1 flex flex-col items-center justify-center">
+                {status === "SHOW_QR" && qrData && (
+                    <div className="bg-white p-8 rounded-3xl shadow-2xl animate-fade-in">
+                        <QRCode value={qrData} size={300} />
+                        <p className="text-gray-900 font-bold text-xl mt-4">Scan to Pay €{amount}</p>
+                    </div>
+                )}
 
-            <div style={{ textAlign: 'left', fontSize: '0.8em', color: '#888', marginTop: '40px', maxHeight: '150px', overflowY: 'auto', border: '1px solid #444', padding: '10px', background: '#000' }}>
-                {logs.map((log, i) => <div key={i}>{log}</div>)}
-            </div>
+                {status === "SUCCESS" && (
+                    <div className="text-9xl animate-bounce">✅</div>
+                )}
+
+                {status === "IDLE" && (
+                    <div className="text-gray-500 dark:text-gray-400 text-xl animate-pulse">
+                        Waiting for selection...
+                    </div>
+                )}
+            </main>
+
+            <footer className="mt-auto pt-8 w-full max-w-2xl mx-auto">
+                <div className="text-left bg-white/80 dark:bg-black/50 border border-gray-200 dark:border-gray-800 rounded-xl p-4 backdrop-blur-sm transition-colors">
+                    <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">System Logs</h3>
+                    <div className="font-mono text-xs text-gray-600 dark:text-gray-400 space-y-1 max-h-32 overflow-y-auto">
+                        {logs.length === 0 && <span className="opacity-50">No logs yet...</span>}
+                        {logs.map((log, i) => (
+                            <div key={i} className="border-b border-gray-200 dark:border-gray-800/50 last:border-0 pb-1 last:pb-0">
+                                {log}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </footer>
         </div>
     );
 }
