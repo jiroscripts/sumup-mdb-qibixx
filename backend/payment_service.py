@@ -13,6 +13,7 @@ class PaymentService:
         self.access_token = None
         self.token_expiry = 0
         self.base_url = Config.SUMUP_API_URL
+        self.api_key = Config.SUMUP_API_KEY
 
     def _get_token(self):
         """

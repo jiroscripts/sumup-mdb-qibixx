@@ -8,10 +8,14 @@
     "devDependencies": {
         "@commitlint/cli": "^18.4.3",
         "@commitlint/config-conventional": "^18.4.3",
-        "husky": "^8.0.3"
+        "husky": "^8.0.3",
+        "supabase": "^2.65.6"
     },
     "repository": {
         "type": "git",
         "url": "https://github.com/your-repo/sumup-mdb-qibixx.git"
+    },
+    "dependencies": {
+        "@supabase/supabase-js": "^2.86.2"
     }
 }

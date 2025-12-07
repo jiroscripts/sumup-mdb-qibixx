@@ -47,7 +47,7 @@ dev:
 	@echo "Web App:  http://127.0.0.1:5174"
 	@echo "Docs:     http://127.0.0.1:3000"
 	@# Use make -j4 to run targets in parallel
-	@$(MAKE) -j4 dev-backend dev-frontend dev-web dev-docs
+	@$(MAKE) -j5 dev-backend dev-frontend dev-web dev-docs listener
 
 dev-backend:
 	@. $(BIN)/activate && $(PYTHON) -m uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
@@ -60,6 +60,9 @@ dev-web:
 
 dev-docs:
 	@$(PYTHON) -m http.server 3000 --directory docs
+
+listener:
+	@. $(BIN)/activate && $(PYTHON) backend/listener.py
 
 stop:
 	@echo "Stopping all services..."
@@ -79,3 +82,53 @@ clean:
 
 lint:
 	@npx commitlint --from HEAD~1 --to HEAD --verbose
+
+# --- Supabase ---
+supabase-login:
+	@npx supabase login
+
+supabase-init:
+	@if [ ! -f supabase/config.toml ]; then \
+		npx supabase init; \
+	else \
+		echo "✅ Supabase already initialized."; \
+	fi
+
+supabase-new:
+	@read -p "Enter function name: " name; npx supabase functions new $$name
+
+supabase-deploy:
+	@npx supabase functions deploy --no-verify-jwt
+
+supabase-push-env:
+	@npx supabase secrets set --env-file .env
+
+supabase-link:
+	@# Explicitly source .env to ensure variables are available to the shell
+	@if [ -f .env ]; then set -a; . ./.env; set +a; fi; \
+	if [ -z "$$SUPABASE_PROJECT_ID" ]; then \
+		echo "❌ Error: SUPABASE_PROJECT_ID is not set in .env"; \
+		exit 1; \
+	fi; \
+	npx supabase link --project-ref $$SUPABASE_PROJECT_ID
+
+supabase-db-push:
+	@npx supabase db push
+
+setup-supabase: supabase-login supabase-init supabase-link supabase-push-env supabase-db-push supabase-deploy
+	@echo "✅ Supabase Setup Complete!"
+	@echo "   - Project Linked"
+	@echo "   - Secrets Pushed"
+	@echo "   - Database Schema Applied"
+	@echo "   - Edge Functions Deployed"
+
+supabase-start:
+	@npx supabase start
+
+supabase-stop:
+	@npx supabase stop
+
+setup-webhook:
+	@echo "Installing dependencies for script..."
+	@npm install dotenv node-fetch --no-save
+	@node scripts/setup-webhook.js

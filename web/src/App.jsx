@@ -1,12 +1,14 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import PaymentPage from './PaymentPage';
+import WalletPage from './WalletPage';
 
 function App() {
     return (
         <Router>
             <Routes>
                 <Route path="/payment" element={<PaymentPage />} />
+                <Route path="/wallet" element={<WalletPage />} />
                 <Route path="/" element={
                     <div style={{ textAlign: 'center', padding: '50px' }}>
                         <h1>Vending Machine Web App</h1>
