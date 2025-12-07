@@ -62,17 +62,24 @@ on public.wallets for select
 to authenticated
 using (auth.uid() = user_id);
 
--- Vend Sessions: Public Read/Write (for Kiosk & App)
--- Note: Ideally, write access should be restricted to Service Role (Edge Functions), 
--- but for the Kiosk simulator (client-side), we allow insert.
-create policy "Allow public access"
-on public.vend_sessions for all
-using (true)
-with check (true);
+-- Vend Sessions: Security Policies
+-- 1. READ: Everyone can read sessions (Kiosk needs to listen, App needs to check status)
+create policy "Enable read access for all users"
+on public.vend_sessions for select
+using (true);
+
+-- 2. INSERT: BLOCKED for public!
+-- Only Service Role (MDB Bridge) can create sessions.
+-- We simply DO NOT create a policy allowing INSERT for anon/authenticated.
+
+-- 3. UPDATE: BLOCKED for public!
+-- Only Service Role (Backend/Edge Functions) can update sessions.
 
 -- 5. Grants
-grant insert, select, update on public.vend_sessions to anon;
-grant insert, select, update on public.vend_sessions to authenticated;
+-- We grant SELECT only to anon/authenticated.
+grant select on public.vend_sessions to anon;
+grant select on public.vend_sessions to authenticated;
+grant insert, update, delete on public.vend_sessions to service_role;
 
 -- 6. Logic: Auto-update Wallet Balance
 

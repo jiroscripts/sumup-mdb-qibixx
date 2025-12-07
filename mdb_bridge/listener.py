@@ -127,8 +127,8 @@ async def main():
             while True:
                 await asyncio.sleep(1)
                 
-                # Periodic Simulation
-                if time.time() - last_sim_time > SIMULATION_INTERVAL:
+                # Periodic Simulation (Only if enabled)
+                if Config.MDB_SIMULATION_MODE and (time.time() - last_sim_time > SIMULATION_INTERVAL):
                     logger.info("🤖 Simulating Periodic Vend Request...")
                     await create_vend_session(0.35)
                     last_sim_time = time.time()
