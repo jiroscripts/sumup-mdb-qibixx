@@ -42,15 +42,11 @@ install-web:
 # --- Development ---
 dev:
 	@echo "${GREEN}Starting Development Environment...${NC}"
-	@echo "Backend:  http://127.0.0.1:8000"
-	@echo "Frontend: http://127.0.0.1:5173"
+	@echo "Frontend (Legacy): http://127.0.0.1:5173"
 	@echo "Web App:  http://127.0.0.1:5174"
 	@echo "Docs:     http://127.0.0.1:3000"
 	@# Use make -j4 to run targets in parallel
-	@$(MAKE) -j5 dev-backend dev-frontend dev-web dev-docs listener
-
-dev-backend:
-	@. $(BIN)/activate && $(PYTHON) -m uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+	@$(MAKE) -j4 dev-frontend dev-web dev-docs listener
 
 dev-frontend:
 	@cd frontend && $(NPM) run dev -- --port 5173 --host

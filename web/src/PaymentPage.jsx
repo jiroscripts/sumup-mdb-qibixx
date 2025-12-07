@@ -1,160 +1,102 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { supabase } from './supabaseClient';
+import { useNavigate } from 'react-router-dom';
 
 const PaymentPage = () => {
-    const [searchParams] = useSearchParams();
-    const checkoutId = searchParams.get('checkout_id');
+    const [session, setSession] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [processing, setProcessing] = useState(false);
+    const navigate = useNavigate();
 
-    const [status, setStatus] = useState('initializing'); // initializing, ready, processing, paid, failed
-    const [errorDetails, setErrorDetails] = useState(null);
-    const widgetMounted = useRef(false);
-
-    // 1. Helper to notify backend
-    const notifyBackend = async (id) => {
-        try {
-            await fetch(`http://${window.location.hostname}:8000/api/simulate/payment/${id}`, { method: 'POST' });
-        } catch (err) {
-            console.error("Failed to notify backend:", err);
-        }
-    };
-
-    // 2. Helper to check status (for 3DS return)
-    const checkPaymentStatus = async (id) => {
-        try {
-            const res = await fetch(`http://${window.location.hostname}:8000/api/payment-status/${id}`);
-            const data = await res.json();
-
-            if (data.status === 'PAID' || data.status === 'SUCCESSFUL') {
-                return true;
-            }
-            return false;
-        } catch (e) {
-            console.error("Status check failed", e);
-            return false;
-        }
-    };
-
-    // 3. Mount Widget Logic
-    const mountWidget = (id) => {
-        if (widgetMounted.current) return;
-        if (!window.SumUpCard) return;
-
-        try {
-            window.SumUpCard.mount({
-                checkoutId: id,
-                locale: 'fr-FR',
-                showGooglePay: true,
-                showApplePay: true,
-                onResponse: async function (type, body) {
-                    if (type === 'success') {
-                        if (body.status === 'PAID' || body.status === 'SUCCESSFUL') {
-                            setStatus('paid');
-                            setErrorDetails(body);
-                            await notifyBackend(id);
-                        } else {
-                            setStatus('failed');
-                            setErrorDetails(body);
-                        }
-                    } else if (type === 'error') {
-                        setStatus('failed');
-                        setErrorDetails({ type: type, ...body });
-                    } else {
-                        // Type 'sent' or others: The widget is working (e.g. 3DS redirect).
-                        // Do NOT set failed. Just log.
-                        console.log("Widget processing...", type);
-                    }
-                }
-            });
-            widgetMounted.current = true;
-            setStatus('ready');
-        } catch (e) {
-            console.error("Mount Error:", e);
-            setStatus('failed');
-            setErrorDetails({ message: "Widget Mount Failed" });
-        }
-    };
-
-    // 4. Main Effect: Load Script & Handle Flow
     useEffect(() => {
-        if (!checkoutId) {
-            setErrorDetails({ message: "No Checkout ID provided" });
-            setStatus('failed');
-            return;
-        }
-
-        // A. Check if already paid (Handling 3DS Redirect Return)
-        checkPaymentStatus(checkoutId).then(isPaid => {
-            if (isPaid) {
-                setStatus('paid');
-                notifyBackend(checkoutId);
-                return;
-            }
-
-            // B. If not paid, Load SDK
-            if (window.SumUpCard) {
-                mountWidget(checkoutId);
-            } else {
-                if (!document.getElementById('sumup-sdk')) {
-                    const script = document.createElement('script');
-                    script.id = 'sumup-sdk';
-                    script.src = "https://gateway.sumup.com/gateway/ecom/card/v2/sdk.js";
-                    script.async = true;
-
-                    script.onload = () => mountWidget(checkoutId);
-                    script.onerror = () => {
-                        setStatus('failed');
-                        setErrorDetails({ message: "Failed to load SumUp SDK" });
-                    };
-                    document.body.appendChild(script);
-                } else {
-                    // Script tag exists but window.SumUpCard not ready?
-                    // This is rare. We can just attach a listener to the existing script if needed,
-                    // but for simplicity, let's assume if tag exists, it will load.
-                    // If we really need to handle this edge case, we would need to track script load state globally.
-                    // For this project, a simple retry or reload by user is acceptable.
-                    console.log("SDK script already present, waiting for load...");
-                    const existingScript = document.getElementById('sumup-sdk');
-                    existingScript.addEventListener('load', () => mountWidget(checkoutId));
-                }
-            }
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            setSession(session);
+            setLoading(false);
         });
 
-        return () => {
-            // Cleanup if needed
-        };
-    }, [checkoutId]);
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            setSession(session);
+            setLoading(false);
+        });
 
+        return () => subscription.unsubscribe();
+    }, []);
 
-    // --- RENDER ---
+    const handlePayCoffee = async () => {
+        if (!session) return;
+        setProcessing(true);
+
+        try {
+            const { data, error } = await supabase.functions.invoke('pay-coffee', {
+                body: { amount: 0.35 }
+            });
+
+            if (error) {
+                alert("Paiement refusé : " + (error.message || "Erreur inconnue"));
+            } else {
+                alert("Paiement accepté ! Votre café arrive ☕");
+                // Optionnel : Rediriger vers Wallet ou afficher un succès
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Erreur réseau");
+        } finally {
+            setProcessing(false);
+        }
+    };
+
+    if (loading) return <div style={{ padding: '50px', textAlign: 'center' }}>Chargement...</div>;
+
+    if (!session) {
+        return (
+            <div style={{ padding: '20px', textAlign: 'center', fontFamily: 'sans-serif' }}>
+                <h2>Connectez-vous pour payer</h2>
+                <p>Vous devez avoir un compte pour utiliser cette machine.</p>
+                <button
+                    onClick={() => navigate('/wallet')}
+                    style={{ padding: '12px 20px', background: '#333', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }}
+                >
+                    Aller au Wallet / Connexion
+                </button>
+            </div>
+        );
+    }
+
     return (
-        <div style={{ padding: '20px', fontFamily: 'sans-serif', textAlign: 'center', maxWidth: '400px', margin: '0 auto' }}>
-            <h2>Paiement Borne</h2>
+        <div style={{ padding: '20px', maxWidth: '400px', margin: '0 auto', fontFamily: 'sans-serif', textAlign: 'center' }}>
+            <h1>Machine à Café</h1>
+            <p>Prix : 0.35 €</p>
 
-            {/* Status Messages */}
-            {status === 'initializing' && <p>Chargement...</p>}
+            <div style={{ margin: '40px 0' }}>
+                <span style={{ fontSize: '4em' }}>☕</span>
+            </div>
 
-            {status === 'paid' && (
-                <div style={{ padding: '20px', backgroundColor: '#d4edda', color: '#155724', borderRadius: '8px' }}>
-                    <h3>✅ Paiement Réussi</h3>
-                    <p>Votre produit est en cours de distribution.</p>
-                </div>
-            )}
+            <button
+                onClick={handlePayCoffee}
+                disabled={processing}
+                style={{
+                    width: '100%',
+                    padding: '15px',
+                    background: processing ? '#ccc' : '#ffc107',
+                    color: 'black',
+                    border: 'none',
+                    borderRadius: '5px',
+                    fontSize: '1.2em',
+                    fontWeight: 'bold',
+                    cursor: processing ? 'not-allowed' : 'pointer'
+                }}
+            >
+                {processing ? "Traitement..." : "Payer avec mon Wallet"}
+            </button>
 
-            {status === 'failed' && (
-                <div style={{ padding: '20px', backgroundColor: '#f8d7da', color: '#721c24', borderRadius: '8px' }}>
-                    <h3>❌ Échec du paiement</h3>
-                    <p>Veuillez réessayer.</p>
-                    {errorDetails && (
-                        <pre style={{ textAlign: 'left', fontSize: '11px', marginTop: '10px', overflowX: 'auto' }}>
-                            {JSON.stringify(errorDetails, null, 2)}
-                        </pre>
-                    )}
-                </div>
-            )}
-
-            {/* Widget Container - Always render it, but hide if paid/failed to avoid flicker */}
-            <div id="sumup-card" style={{ display: (status === 'ready' || status === 'initializing') ? 'block' : 'none' }}></div>
-
+            <div style={{ marginTop: '20px' }}>
+                <button
+                    onClick={() => navigate('/wallet')}
+                    style={{ background: 'none', border: 'none', color: '#007bff', cursor: 'pointer', textDecoration: 'underline' }}
+                >
+                    Gérer mon solde
+                </button>
+            </div>
         </div>
     );
 };

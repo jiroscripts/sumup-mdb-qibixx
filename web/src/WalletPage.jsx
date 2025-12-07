@@ -136,30 +136,7 @@ const WalletPage = () => {
         setTimeout(mount, 100);
     };
 
-    // 4. Vend Flow
-    const handleVend = async () => {
-        if (!session) return;
-        if (!confirm("Dispense Coffee for €0.35?")) return;
 
-        if (balance < 0.35) {
-            alert("Insufficient funds");
-            return;
-        }
-
-        const { error } = await supabase
-            .from('vend_requests')
-            .insert({
-                user_id: session.user.id,
-                amount: 0.35,
-                status: 'PENDING'
-            });
-
-        if (error) {
-            alert("Failed: " + error.message);
-        } else {
-            alert("Vend requested! Please wait...");
-        }
-    };
 
     // 5. Login UI
     const [email, setEmail] = useState('');
@@ -246,12 +223,7 @@ const WalletPage = () => {
                 <div id="sumup-card-wallet" style={{ marginTop: '20px' }}></div>
             </div>
 
-            <div style={{ marginTop: '40px', borderTop: '1px solid #ccc', paddingTop: '20px' }}>
-                <h3>Actions</h3>
-                <button onClick={handleVend} style={{ width: '100%', padding: '15px', background: '#ffc107', border: 'none', borderRadius: '5px', fontSize: '1.1em', fontWeight: 'bold' }}>
-                    ☕ Buy Coffee (€0.35)
-                </button>
-            </div>
+
         </div>
     );
 };

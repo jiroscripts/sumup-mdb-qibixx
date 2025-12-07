@@ -17,14 +17,7 @@ logger = logging.getLogger("MDB-Listener")
 # Initialize Supabase (Admin Client)
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
-# Mock MDB Service (Replace with real MDBService import)
-class MDBService:
-    def approve_vend(self):
-        logger.info("✅ MDB: Vend Approved! Dispensing product...")
-        return True
-
-    def deny_vend(self):
-        logger.info("❌ MDB: Vend Denied.")
+from mdb_service import MDBService
 
 mdb_service = MDBService()
 
@@ -51,26 +44,7 @@ async def process_vend_request(payload):
     logger.info(f"🔔 New Vend Request: {request_id} | User: {user_id} | Amount: {amount}")
 
     try:
-        # 1. Check Balance (Server-side verification)
-        res = supabase.table('wallets').select('balance').eq('user_id', user_id).single().execute()
-        balance = float(res.data['balance']) if res.data else 0.0
-
-        if balance < amount:
-            logger.warning(f"Insufficient funds: {balance} < {amount}")
-            supabase.table('vend_requests').update({'status': 'DENIED'}).eq('id', request_id).execute()
-            return
-
-        # 2. Debit Wallet (Insert Transaction)
-        # Note: The trigger will auto-update the wallet balance
-        tx_res = supabase.table('transactions').insert({
-            'user_id': user_id,
-            'amount': -amount, # Negative for debit
-            'type': 'VEND',
-            'description': 'Coffee/Snack',
-            'metadata': {'request_id': request_id}
-        }).execute()
-
-        # 3. Dispense Product
+        # 1. Dispense Product (Debit already handled by pay-coffee)
         dispense_success = mdb_service.approve_vend()
 
         if dispense_success:
