@@ -58,12 +58,6 @@ serve(async (req) => {
 
         if (error) throw error
 
-        if (data.length > 0) {
-            console.log(`Transaction ${checkoutId} completed successfully.`)
-        } else {
-            console.log(`Transaction ${checkoutId} already processed or not found.`)
-        }
-
         return new Response('OK', { status: 200 })
 
     } catch (error) {

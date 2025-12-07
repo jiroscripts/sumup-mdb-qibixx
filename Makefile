@@ -21,6 +21,8 @@ help:
 	@echo "  dev-docs     Start only the documentation server"
 	@echo "  clean        Remove build artifacts and cache"
 	@echo "  lint         Run linters (commitlint, etc)"
+	@echo "  supabase-delete      Delete a specific Edge Function"
+	@echo "  supabase-delete-all  Delete all known Edge Functions"
 
 # --- Installation ---
 install: install-backend install-frontend install-web
@@ -93,6 +95,22 @@ supabase-init:
 
 supabase-new:
 	@read -p "Enter function name: " name; npx supabase functions new $$name
+
+supabase-delete:
+	@read -p "Enter function name to delete: " name; \
+	npx supabase functions delete $$name
+
+supabase-delete-all:
+	@echo "Fetching list of functions..."
+	@funcs=$$(npx supabase functions list --output json | jq -r '.[].slug'); \
+	if [ -z "$$funcs" ]; then \
+		echo "No functions found."; \
+	else \
+		for func in $$funcs; do \
+			echo "Deleting $$func..."; \
+			npx supabase functions delete $$func --yes; \
+		done; \
+	fi
 
 supabase-deploy:
 	@npx supabase functions deploy --no-verify-jwt
