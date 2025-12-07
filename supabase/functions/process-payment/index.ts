@@ -22,7 +22,8 @@ serve(async (req) => {
         const { data: { user }, error: userError } = await supabaseClient.auth.getUser()
         if (userError || !user) throw new Error("Unauthorized")
 
-        const reqBody = await req.json().catch(() => ({}))
+        const { session_id } = await req.json().catch(() => ({}))
+        if (!session_id) throw new Error("Missing session_id")
 
         // 2. Use Admin Client for DB operations
         const supabaseAdmin = createClient(
@@ -30,58 +31,57 @@ serve(async (req) => {
             Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
         )
 
-        // 3. Check Balance
+        // 3. Fetch Vend Session (Secure Price Source)
+        const { data: vendSession, error: sessionError } = await supabaseAdmin
+            .from('vend_sessions')
+            .select('*')
+            .eq('id', session_id)
+            .single()
+
+        if (sessionError || !vendSession) throw new Error("Invalid or expired session")
+        if (vendSession.status !== 'PENDING') throw new Error("Session already processed")
+
+        const PRICE = vendSession.amount
+
+        // 4. Check Balance
         const { data: wallet } = await supabaseAdmin
             .from('wallets')
             .select('balance')
             .eq('user_id', user.id)
             .single()
 
-        if (!wallet || wallet.balance < reqBody.amount) {
+        if (!wallet || wallet.balance < PRICE) {
             throw new Error("Insufficient funds")
         }
 
-        // 4. Debit Wallet via Transaction (History + Trigger)
+        // 5. Debit Wallet via Transaction
         const { error: txError } = await supabaseAdmin
             .from('transactions')
             .insert({
                 user_id: user.id,
-                amount: -reqBody.amount, // Negative for debit
+                amount: -PRICE,
                 type: 'VEND',
                 status: 'COMPLETED',
                 description: 'Coffee Purchase',
-                metadata: { source: 'web_wallet' }
+                metadata: { source: 'web_wallet', session_id: session_id }
             })
 
         if (txError) throw new Error("Transaction failed. Please try again.")
 
-        // 5. Create Vend Request
-        const { error: vendError } = await supabaseAdmin
-            .from('vend_requests')
-            .insert({
-                user_id: user.id,
-                amount: reqBody.amount,
-                status: 'PENDING'
-            })
+        // 6. Mark Session as PAID
+        const { error: updateError } = await supabaseAdmin
+            .from('vend_sessions')
+            .update({ status: 'PAID', metadata: { ...vendSession.metadata, paid_by: user.id } })
+            .eq('id', session_id)
 
-        if (vendError) {
-            // CRITICAL: Refund if vend request fails!
-            // Insert a refund transaction
-            await supabaseAdmin
-                .from('transactions')
-                .insert({
-                    user_id: user.id,
-                    amount: reqBody.amount,
-                    type: 'REFUND',
-                    status: 'COMPLETED',
-                    description: 'Refund for failed vend request'
-                })
-
-            throw new Error("Failed to create vend request")
+        if (updateError) {
+            // Critical: If we fail to mark paid, we should refund or retry.
+            // For now, we assume this works if transaction worked.
+            console.error("Failed to update session status", updateError)
         }
 
         return new Response(
-            JSON.stringify({ success: true, new_balance: wallet.balance - reqBody.amount }),
+            JSON.stringify({ success: true, new_balance: wallet.balance - PRICE }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
 

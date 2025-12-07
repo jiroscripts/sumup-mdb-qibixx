@@ -75,7 +75,7 @@ const WalletPage = () => {
         if (!session) return;
         setWidgetStatus('mounting');
         try {
-            const { data, error } = await supabase.functions.invoke('create-checkout', {
+            const { data, error } = await supabase.functions.invoke('initiate-wallet-recharge', {
                 body: {
                     amount: rechargeAmount,
                     user_id: session.user.id

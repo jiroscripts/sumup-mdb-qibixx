@@ -6,7 +6,7 @@ load_dotenv()
 
 SUMUP_API_KEY = os.getenv("SUMUP_API_KEY")
 SUPABASE_PROJECT_ID = os.getenv("SUPABASE_PROJECT_ID")
-WEBHOOK_URL = f"https://{SUPABASE_PROJECT_ID}.supabase.co/functions/v1/sumup-webhook"
+WEBHOOK_URL = f"https://{SUPABASE_PROJECT_ID}.supabase.co/functions/v1/handle-sumup-webhook"
 
 if not SUMUP_API_KEY:
     print("❌ Error: SUMUP_API_KEY not found in .env")

@@ -26,3 +26,7 @@ class Config:
     # Server Configuration
     HOST = "0.0.0.0"
     PORT = 8000
+
+    # Application Configuration
+    MACHINE_ID = os.getenv("MACHINE_ID")
+    SIMULATION_INTERVAL = int(os.getenv("SIMULATION_INTERVAL", 30))

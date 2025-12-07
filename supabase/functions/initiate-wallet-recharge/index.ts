@@ -28,7 +28,7 @@ serve(async (req) => {
         }
 
         // 1. Create Checkout on SumUp
-        const webhookUrl = `${SUPABASE_URL}/functions/v1/sumup-webhook`
+        const webhookUrl = `${SUPABASE_URL}/functions/v1/handle-sumup-webhook`
         const checkoutRef = `REF-${Date.now()}-${Math.floor(Math.random() * 1000)}`
 
         const payload = {
@@ -40,7 +40,9 @@ serve(async (req) => {
             merchant_code: SUMUP_MERCHANT_CODE
         }
 
-        const response = await fetch('https://api.sumup.com/v0.1/checkouts', {
+        const SUMUP_API_URL = Deno.env.get('SUMUP_API_URL') || 'https://api.sumup.com'
+
+        const response = await fetch(`${SUMUP_API_URL}/v0.1/checkouts`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${SUMUP_API_KEY}`,

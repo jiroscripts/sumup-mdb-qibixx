@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+
 import PaymentPage from './PaymentPage';
 import WalletPage from './WalletPage';
 
@@ -7,6 +8,7 @@ function App() {
     return (
         <Router>
             <Routes>
+
                 <Route path="/payment" element={<PaymentPage />} />
                 <Route path="/wallet" element={<WalletPage />} />
                 <Route path="/" element={

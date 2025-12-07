@@ -42,11 +42,12 @@ install-web:
 # --- Development ---
 dev:
 	@echo "${GREEN}Starting Development Environment...${NC}"
-	@echo "Frontend (Legacy): http://127.0.0.1:5173"
+
 	@echo "Web App:  http://127.0.0.1:5174"
 	@echo "Docs:     http://127.0.0.1:3000"
+	@echo "Backend:  MDB Listener (Realtime)"
 	@# Use make -j4 to run targets in parallel
-	@$(MAKE) -j4 dev-frontend dev-web dev-docs listener
+	@$(MAKE) -j4 dev-frontend dev-web dev-docs dev-backend
 
 dev-frontend:
 	@cd frontend && $(NPM) run dev -- --port 5173 --host
@@ -57,7 +58,7 @@ dev-web:
 dev-docs:
 	@$(PYTHON) -m http.server 3000 --directory docs
 
-listener:
+dev-backend:
 	@. $(BIN)/activate && $(PYTHON) backend/listener.py
 
 stop:

@@ -2,3 +2,4 @@ supabase
 pyserial
 requests
 python-dotenv
+websockets

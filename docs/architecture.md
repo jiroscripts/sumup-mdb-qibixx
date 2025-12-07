@@ -74,16 +74,24 @@ Les deux programmes se parlent via **WebSocket** (connexion temps réel) :
 %%{init: {'theme':'dark', 'themeVariables': { 'fontSize':'20px'}}}%%
 graph LR
     MDB["📡 Service MDB"]
-    Payment["💳 Service Paiement"]
-    API["🔌 API FastAPI"]
-    WS["🔄 WebSocket Client"]
-    UI["🖥️ Interface React"]
+    Payment["💳 Web App (Client)"]
+    API["🔌 Backend (Listener)"]
+    Supabase["🗄️ Supabase DB"]
+    Edge["⚡ Edge Functions"]
+    UI["🖥️ Frontend (Kiosk)"]
 
     MDB -->|1. VEND_REQ| API
-    API -->|2. STATE_CHANGE| WS
-    Payment -->|3. Create Checkout| API
-    API -->|4. SHOW_QR| WS
-    WS -->|5. Affiche QR| UI
+    API -->|2. INSERT vend_sessions| Supabase
+    Supabase -->|3. Realtime INSERT| UI
+    UI -->|4. Affiche QR| UI
+    
+    Payment -->|5. Scan QR & Pay| Edge
+    Edge -->|6. initiate-wallet-recharge| Supabase
+    Edge -->|7. handle-sumup-webhook| Supabase
+    Edge -->|8. process-payment| Supabase
+    
+    Supabase -->|9. Realtime UPDATE (PAID)| API
+    API -->|10. APPROVE| MDB
 ```
 
 ## Diagramme de Séquence : Flux de Paiement
@@ -118,40 +126,39 @@ Voici ce qui se passe **étape par étape** quand un client achète un produit :
 
 ### Diagramme Technique
 
+### Diagramme Technique
+
 ```mermaid
 %%{init: {'theme':'dark', 'themeVariables': { 'fontSize':'20px'}}}%%
 sequenceDiagram
     participant VMC as 🏪 VMC
     participant Backend as 🐍 Backend
-    participant SumUp as ☁️ SumUp
+    participant Supabase as 🗄️ Supabase
     participant Frontend as 🖥️ Frontend
     participant User as 👤 Client
+    participant Edge as ⚡ Edge Functions
+    participant SumUp as ☁️ SumUp
 
     Note over VMC,User: État: IDLE
 
     VMC->>Backend: VEND_REQUEST (2.50€)
     activate Backend
-    Backend->>Frontend: STATE=PROCESSING
-    Frontend-->>User: "Chargement..."
-    
-    Backend->>SumUp: POST /checkouts
-    activate SumUp
-    SumUp-->>Backend: QR Code + ID
-    deactivate SumUp
-
-    Backend->>Frontend: SHOW_QR
+    Backend->>Supabase: INSERT vend_sessions (PENDING)
+    Supabase-->>Frontend: Realtime: INSERT
     Frontend-->>User: Affiche QR Code
-
-    User->>SumUp: Scanne & Paie
     
-    loop Polling
-        Backend->>SumUp: GET /checkouts/{id}
-        SumUp-->>Backend: Status: PAID
-    end
-
-    Backend->>Frontend: STATE=SUCCESS
-    Frontend-->>User: "Paiement Validé!"
+    User->>Edge: initiate-wallet-recharge
+    Edge->>SumUp: Create Checkout
+    SumUp-->>User: Formulaire Paiement
     
+    User->>SumUp: Valide Paiement
+    SumUp->>Edge: Webhook (PAID)
+    Edge->>Supabase: UPDATE transactions (COMPLETED)
+    
+    User->>Edge: process-payment (Pay Coffee)
+    Edge->>Supabase: UPDATE vend_sessions (PAID)
+    
+    Supabase-->>Backend: Realtime: UPDATE (PAID)
     Backend->>VMC: APPROVE
     deactivate Backend
     

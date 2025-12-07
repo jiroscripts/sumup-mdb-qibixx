@@ -1,18 +1,15 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import QRCode from 'qrcode.react';
+import { supabase } from './supabaseClient';
 
-const API_URL = "/api"; // Use proxy
-const WS_URL = `ws://${window.location.host}/ws`; // Use proxy via current host
+const MACHINE_ID = import.meta.env.VITE_MACHINE_ID;
 
 function App() {
-    const [status, setStatus] = useState("IDLE"); // IDLE, PROCESSING, SHOW_QR, SUCCESS, ERROR
+    const [status, setStatus] = useState("IDLE"); // IDLE, SHOW_QR, SUCCESS, ERROR
     const [message, setMessage] = useState("Ready for order");
     const [qrData, setQrData] = useState(null);
+    const [currentSessionId, setCurrentSessionId] = useState(null);
     const [amount, setAmount] = useState(0);
-    const [checkoutId, setCheckoutId] = useState(null);
-    const ws = useRef(null);
-
-    const [wsStatus, setWsStatus] = useState("DISCONNECTED");
     const [logs, setLogs] = useState([]);
 
     const addLog = (msg) => {
@@ -20,119 +17,94 @@ function App() {
     };
 
     useEffect(() => {
-        let socket = new WebSocket(WS_URL);
-        ws.current = socket;
+        addLog("Connecting to Supabase Realtime...");
 
-        socket.onopen = () => {
-            console.log("WebSocket Connected");
-            setWsStatus("CONNECTED");
-            addLog("WS Connected");
-        };
+        const channel = supabase
+            .channel('kiosk-updates')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'vend_sessions' }, (payload) => {
+                const session = payload.new;
+                // Filter by machine_id
+                if (session.metadata?.machine_id !== MACHINE_ID) return;
 
-        socket.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            console.log("WS Message:", data);
-            addLog(`WS Rx: ${data.type}`);
-
-            switch (data.type) {
-                case "STATE_CHANGE":
-                    setStatus(data.state);
-                    if (data.state === "PROCESSING") setMessage("Processing Request...");
-                    if (data.state === "SUCCESS") {
-                        setMessage("Payment Approved! Dispensing...");
-                        setTimeout(() => {
-                            setStatus("IDLE");
-                            setMessage("Ready for order");
-                            setQrData(null);
-                        }, 5000);
-                    }
-                    break;
-                case "SHOW_QR":
-                    setStatus("SHOW_QR");
-                    setQrData(data.qr_url);
-                    setAmount(data.amount);
-                    setCheckoutId(data.checkout_id);
-                    setMessage(`Please pay €${data.amount.toFixed(2)}`);
-                    break;
-                case "ERROR":
-                    setStatus("ERROR");
-                    setMessage(data.message);
-                    setTimeout(() => setStatus("IDLE"), 3000);
-                    break;
-                default:
-                    break;
-            }
-        };
-
-        socket.onclose = (event) => {
-            console.log("WebSocket Disconnected", event);
-            setWsStatus("DISCONNECTED");
-            addLog("WS Disconnected");
-        };
+                addLog(`New Session: ${session.id} (${session.amount}€)`);
+                handleNewSession(session);
+            })
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'vend_sessions' }, (payload) => {
+                const session = payload.new;
+                if (session.id === currentSessionId) {
+                    handleSessionUpdate(session);
+                }
+            })
+            .subscribe((status) => {
+                if (status === 'SUBSCRIBED') addLog("Connected to Realtime");
+            });
 
         return () => {
-            if (ws.current) ws.current.close();
+            supabase.removeChannel(channel);
         };
-    }, []);
+    }, [currentSessionId]); // Re-subscribe if currentSessionId changes? No, ref is better but let's keep it simple.
 
+    const handleNewSession = (session) => {
+        setCurrentSessionId(session.id);
+        setAmount(session.amount);
+        // Generate URL for the mobile app
+        // Assuming the mobile app is hosted at the same domain but different port or path
+        // For dev: http://localhost:5174/payment?session_id=...
+        // For prod: https://votre-domaine.com/payment?session_id=...
 
+        // We'll use a hardcoded base URL for dev for now, or relative if served together
+        const baseUrl = import.meta.env.VITE_WEB_APP_URL || "http://localhost:5174";
+        const paymentUrl = `${baseUrl}/payment?session_id=${session.id}`;
 
-    // --- Wallet Functions ---
+        addLog(`URL: ${paymentUrl}`); // Log URL for debug
+        console.log("Payment URL:", paymentUrl);
 
-    const simulateVend = async () => {
-        try {
-            await fetch(`${API_URL}/simulate/vend/2.50`, { method: 'POST' });
-            addLog("Simulated Vend Request");
-        } catch (e) {
-            addLog("Simulate Vend Error");
+        setQrData(paymentUrl);
+        setStatus("SHOW_QR");
+        setMessage(`Please pay €${session.amount} by scanning`);
+    };
+
+    const handleSessionUpdate = (session) => {
+        if (session.status === 'PAID' || session.status === 'COMPLETED') {
+            setStatus("SUCCESS");
+            setMessage("Payment Approved! Dispensing...");
+            addLog("Payment Received!");
+
+            setTimeout(() => {
+                resetState();
+            }, 5000);
+        } else if (session.status === 'FAILED') {
+            setStatus("ERROR");
+            setMessage("Payment Failed or Cancelled");
+            setTimeout(() => resetState(), 3000);
         }
     };
 
-    const simulatePayment = async () => {
-        if (!checkoutId) {
-            alert("No active checkout to pay!");
-            return;
-        }
-        try {
-            await fetch(`${API_URL}/simulate/payment/${checkoutId}`, { method: 'POST' });
-            addLog("Simulated Payment");
-        } catch (e) {
-            addLog("Simulate Payment Error");
-        }
+    const resetState = () => {
+        setStatus("IDLE");
+        setMessage("Ready for order");
+        setQrData(null);
+        setCurrentSessionId(null);
     };
 
     return (
-        <div className="app-container" style={{ textAlign: 'center', padding: '20px' }}>
-            <h1>SumUp MDB Display</h1>
-            <h2>{message}</h2>
-            <p>Status: {status} | WS: {wsStatus}</p>
+        <div className="app-container" style={{ textAlign: 'center', padding: '20px', fontFamily: 'sans-serif', background: '#222', color: '#fff', minHeight: '100vh' }}>
+            <h1>☕ Kiosk Display</h1>
+            <h2 style={{ color: status === 'SUCCESS' ? '#4caf50' : '#fff' }}>{message}</h2>
 
             {status === "SHOW_QR" && qrData && (
-                <div className="qr-container" style={{ margin: '20px auto' }}>
+                <div className="qr-container" style={{ margin: '30px auto', background: 'white', padding: '20px', display: 'inline-block', borderRadius: '10px' }}>
                     <QRCode value={qrData} size={256} />
+                    <p style={{ color: 'black', marginTop: '10px' }}>Scan to Pay {amount}€</p>
                 </div>
             )}
 
-            {status === "PROCESSING" && (
-                <div className="loader">Loading...</div>
+            {status === "SUCCESS" && (
+                <div style={{ fontSize: '5em' }}>✅</div>
             )}
 
-            <div style={{ textAlign: 'left', fontSize: '0.8em', color: '#888', marginTop: '20px', maxHeight: '100px', overflowY: 'auto', border: '1px solid #444', padding: '5px' }}>
+            <div style={{ textAlign: 'left', fontSize: '0.8em', color: '#888', marginTop: '40px', maxHeight: '150px', overflowY: 'auto', border: '1px solid #444', padding: '10px', background: '#000' }}>
                 {logs.map((log, i) => <div key={i}>{log}</div>)}
-            </div>
-
-            {/* Debug Panel */}
-            <div className="debug-panel" style={{ marginTop: '30px', padding: '10px', borderTop: '1px solid #ccc' }}>
-                <h3>Debug Controls</h3>
-                <button className="action-vend" onClick={simulateVend} style={{ marginRight: '10px' }}>
-                    🛒 Simulate VMC Request (€2.50)
-                </button>
-                <button className="action-pay" onClick={simulatePayment} style={{ marginRight: '10px' }}>
-                    💳 Simulate Successful Payment
-                </button>
-                <button className="action-reset" onClick={() => { setStatus("IDLE"); setMessage("Ready for order"); setQrData(null); }}>
-                    🔄 Reset State
-                </button>
             </div>
         </div>
     );

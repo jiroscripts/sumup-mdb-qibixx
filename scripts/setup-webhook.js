@@ -3,7 +3,7 @@ import fetch from 'node-fetch';
 
 const SUMUP_API_KEY = process.env.SUMUP_API_KEY;
 const SUPABASE_PROJECT_ID = process.env.SUPABASE_PROJECT_ID;
-const WEBHOOK_URL = `https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/sumup-webhook`;
+const WEBHOOK_URL = `https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/handle-sumup-webhook`;
 
 if (!SUMUP_API_KEY) {
     console.error("❌ Error: SUMUP_API_KEY not found in .env");
