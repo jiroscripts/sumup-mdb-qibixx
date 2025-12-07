@@ -49,6 +49,7 @@ class MDBService:
         
         # Buffer for incoming data
         self.buffer = b""
+        self.current_vend_amount = None
 
     def start(self):
         self.running = True
@@ -65,6 +66,9 @@ class MDBService:
                 logger.error(f"Failed to open serial port: {e}")
                 return
 
+        # Enable Cashless Device (Qibixx Protocol)
+        self._send_command("C,1")
+
         self.thread = threading.Thread(target=self._loop)
         self.thread.daemon = True
         self.thread.start()
@@ -72,6 +76,7 @@ class MDBService:
 
     def stop(self):
         self.running = False
+        self._send_command("C,0") # Disable Cashless Device
         if self.serial:
             self.serial.close()
 
@@ -79,10 +84,6 @@ class MDBService:
         while self.running:
             try:
                 if self.serial and self.serial.is_open:
-                    # Simple line-based reading for POC
-                    # In real MDB, this might be binary, but Qibixx often wraps it.
-                    # We'll assume a newline-terminated ASCII protocol for this POC.
-                    
                     # Read byte by byte to handle partial lines
                     chunk = self.serial.read(1)
                     if chunk:
@@ -99,35 +100,62 @@ class MDBService:
     def _handle_message(self, message):
         logger.info(f"Received MDB Message: {message}")
         
-        # Protocol Logic (Simplified)
-        # VMC sends: "VEND_REQ: <AMOUNT>"
-        if message.startswith("VEND_REQ:"):
+        # Handle Status Messages
+        if "STATUS,ENABLED" in message:
+            logger.info("✅ Cashless Device ENABLED by VMC.")
+        elif "STATUS,DISABLED" in message:
+            logger.warning("⛔ Cashless Device DISABLED by VMC.")
+        
+        # Qibixx Protocol: c,STATUS,VEND,<amount>,<item>
+        # Example: c,STATUS,VEND,1.00,2
+        elif "STATUS,VEND" in message:
             try:
-                _, amount_str = message.split(":")
-                amount = float(amount_str.strip())
-                logger.info(f"Vending Request for {amount} EUR")
-                if self.on_vend_request:
-                    self.on_vend_request(amount)
+                parts = message.split(',')
+                # parts[0] = c
+                # parts[1] = STATUS
+                # parts[2] = VEND
+                # parts[3] = amount
+                # parts[4] = item (optional sometimes)
+                
+                if len(parts) >= 4:
+                    amount_str = parts[3]
+                    amount = float(amount_str)
+                    self.current_vend_amount = amount
+                    
+                    logger.info(f"Vending Request for {amount} EUR")
+                    if self.on_vend_request:
+                        self.on_vend_request(amount)
             except ValueError:
-                logger.error("Invalid VEND_REQ format")
+                logger.error("Invalid VEND format")
 
     def approve_vend(self):
-        """Sends APPROVE signal to VMC"""
-        msg = b"APPROVE\n"
-        if self.serial:
-            self.serial.write(msg)
+        """Sends APPROVE signal to VMC (C,VEND,<amount>)"""
+        if self.current_vend_amount is not None:
+            cmd = f"C,VEND,{self.current_vend_amount:.2f}"
+            self._send_command(cmd)
+            self.current_vend_amount = None # Reset state
+            return True
+        else:
+            logger.error("Cannot approve vend: No active vend request")
+            return False
 
     def deny_vend(self):
-        """Sends DENY signal to VMC"""
-        msg = b"DENY\n"
+        """Sends DENY signal to VMC (C,STOP)"""
+        self._send_command("C,STOP")
+        self.current_vend_amount = None # Reset state
+
+    def _send_command(self, command):
+        """Helper to send command with newline"""
         if self.serial:
+            msg = f"{command}\n".encode('utf-8')
             self.serial.write(msg)
 
     # --- Simulation Helpers ---
     def simulate_vend_request(self, amount: float = 2.50):
         """Injects a fake VEND_REQ message into the serial reader"""
         if isinstance(self.serial, MockSerial):
-            msg = f"VEND_REQ: {amount:.2f}\n".encode('utf-8')
+            # Simulate Qibixx format
+            msg = f"c,STATUS,VEND,{amount:.2f},1\n".encode('utf-8')
             self.serial.inject_data(msg)
         else:
             logger.warning("Cannot simulate vend request in Real Hardware mode")

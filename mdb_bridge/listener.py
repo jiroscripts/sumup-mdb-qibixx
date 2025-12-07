@@ -12,7 +12,6 @@ except ImportError:
     from config import Config
 
 # Load Config
-load_dotenv()
 SUPABASE_URL = Config.SUPABASE_URL
 SUPABASE_SERVICE_ROLE_KEY = Config.SUPABASE_SERVICE_ROLE_KEY
 
@@ -27,12 +26,17 @@ supabase: AsyncClient = None
 from mdb_service import MDBService
 
 # Wrapper to run async function from sync callback (MDB Thread -> Asyncio Loop)
+loop = None
+
 def on_vend_request_sync(amount):
-    # This is tricky: MDB runs in a thread, but we need to call async code in the main loop.
-    # For now, we'll just log it. Ideally, we should use run_coroutine_threadsafe.
-    # But since we are in "Always Idle" mode, the main loop handles the logic via Realtime.
-    # If we need to create a session from MDB, we should use a Queue.
-    pass
+    """
+    Callback triggered by MDBService (in a separate thread) when a VEND is requested.
+    We must schedule the async `create_vend_session` on the main event loop.
+    """
+    if loop:
+        asyncio.run_coroutine_threadsafe(create_vend_session(amount), loop)
+    else:
+        logger.error("Event loop not ready, cannot create session")
 
 mdb_service = MDBService(on_vend_request_sync)
 
@@ -40,7 +44,6 @@ async def create_vend_session(amount):
     """
     Called when the Machine asks for money (MDB VEND REQUEST).
     1. Create session in Supabase
-    2. Generate/Display QR Code
     """
     try:
         # 1. Create session
@@ -52,13 +55,6 @@ async def create_vend_session(amount):
         
         session = res.data[0]
         logger.info(f"🆕 Session Created: {session['id']} | Amount: {amount}")
-        
-        # 2. Generate QR Code (URL)
-        # qr_url = f"https://votre-app.com/payment?session_id={session['id']}"
-        # logger.info(f"📱 QR Code URL: {qr_url}")
-        
-        # TODO: Display this QR code on the Raspberry Pi Screen (e.g. using PyGame, Tkinter, or a web browser in kiosk mode)
-        # display_qr_code(qr_url)
         
         return session['id']
 
@@ -92,7 +88,9 @@ async def process_dispense(session_id):
         await supabase.table('vend_sessions').update({'status': 'FAILED'}).eq('id', session_id).execute()
 
 async def main():
-    global supabase
+    global supabase, loop
+    
+    loop = asyncio.get_running_loop()
     
     logger.info("🚀 Starting MDB Listener (Realtime Async Mode)...")
     mdb_service.start()
@@ -131,7 +129,10 @@ async def main():
                 # Periodic Simulation (Only if enabled)
                 if Config.MDB_SIMULATION_MODE and (time.time() - last_sim_time > SIMULATION_INTERVAL):
                     logger.info("🤖 Simulating Periodic Vend Request...")
-                    await create_vend_session(0.35)
+                    # In simulation, we inject a message into the mock serial, 
+                    # which triggers on_vend_request_sync, which calls create_vend_session.
+                    # This tests the whole flow.
+                    mdb_service.simulate_vend_request(0.35)
                     last_sim_time = time.time()
 
                 # Heartbeat for Docker Healthcheck

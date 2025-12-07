@@ -21,7 +21,7 @@ class Config:
     # Supabase Configuration
     SUPABASE_URL = os.getenv("SUPABASE_URL")
     SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-    BAUD_RATE = 9600 # Standard MDB baud rate, check Qibixx docs if different (often 115200 for the Hat interface itself)
+    BAUD_RATE = 115200 # Qibixx MDB Pi Hat uses 115200 to talk to the Pi
 
     # Server Configuration
     HOST = "0.0.0.0"
