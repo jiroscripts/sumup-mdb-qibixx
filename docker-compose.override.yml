@@ -1,0 +1,10 @@
+version: '3.8'
+
+services:
+  mdb_bridge:
+    environment:
+      - MDB_SIMULATION_MODE=True
+    volumes:
+      - ./mdb_bridge:/app # Hot Reload for Dev
+
+

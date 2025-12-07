@@ -70,6 +70,22 @@ stop:
 	@-fuser -k 8000/tcp 5173/tcp 5174/tcp 3000/tcp > /dev/null 2>&1 || true
 	@echo "${GREEN}Services stopped!${NC}"
 
+# --- Docker ---
+docker-dev:
+	@echo "${GREEN}Starting Docker (Dev Mode)...${NC}"
+	@docker compose up -d --build --remove-orphans
+	@echo "Kiosk: http://localhost:8080"
+	@echo "Web:   http://localhost:5174"
+
+docker-prod:
+	@echo "${GREEN}Starting Docker (Production Mode)...${NC}"
+	@docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build --remove-orphans
+	@echo "Kiosk: http://localhost:8080"
+	@echo "Web:   http://localhost:5174"
+
+docker-stop:
+	@docker compose down
+
 # --- Maintenance ---
 clean:
 	@echo "Cleaning up..."

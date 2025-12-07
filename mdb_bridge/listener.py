@@ -4,6 +4,7 @@ import logging
 import os
 import time
 from dotenv import load_dotenv
+from pathlib import Path
 from supabase import create_async_client, AsyncClient
 try:
     from .config import Config
@@ -132,6 +133,9 @@ async def main():
                     logger.info("🤖 Simulating Periodic Vend Request...")
                     await create_vend_session(0.35)
                     last_sim_time = time.time()
+
+                # Heartbeat for Docker Healthcheck
+                Path("/tmp/healthy").touch()
 
         except Exception as e:
             logger.error(f"❌ Realtime Connection Error: {e}")

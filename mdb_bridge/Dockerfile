@@ -17,5 +17,9 @@ COPY . .
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
 
+# Create a non-root user and switch to it
+RUN useradd -m appuser && chown -R appuser /app
+USER appuser
+
 # Run the application
 CMD ["python", "listener.py"]

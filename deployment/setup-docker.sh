@@ -25,9 +25,17 @@ if [ ! -f .env ]; then
 fi
 
 # 4. Launch Services
-echo "🚀 Launching Services..."
-docker compose up --build -d
+MODE=${1:-dev} # Default to dev
 
-echo "✅ Deployment Complete!"
-echo "   - Frontend Kiosk: http://localhost:8080"
-echo "   - Web App:        http://localhost:5174"
+# Check if make is installed
+if ! command -v make &> /dev/null
+then
+    echo "�️ Installing Make..."
+    sudo apt-get update && sudo apt-get install -y make
+fi
+
+if [ "$MODE" = "prod" ]; then
+    make docker-prod
+else
+    make docker-dev
+fi

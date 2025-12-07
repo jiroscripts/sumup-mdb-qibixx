@@ -3,3 +3,5 @@ pyserial
 requests
 python-dotenv
 websockets
+flake8
+black

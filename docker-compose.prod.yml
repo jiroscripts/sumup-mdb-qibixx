@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  mdb_bridge:
+    restart: always
+    environment:
+      - MDB_SIMULATION_MODE=False
+    # devices:
+      # - /dev/ttyUSB0:/dev/ttyUSB0 # Uncomment for Real Hardware
+
+  kiosk:
+    restart: always
+
+  web:
+    restart: always
