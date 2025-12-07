@@ -1,10 +1,10 @@
 version: '3.8'
 
 services:
-  # 🐍 Backend (Python Listener)
-  backend:
-    build: ./backend
-    container_name: sumup-backend
+  # 🐍 MDB Bridge (Python Listener)
+  mdb_bridge:
+    build: ./mdb_bridge
+    container_name: sumup-mdb-bridge
     restart: always
     env_file:
       - .env
@@ -14,23 +14,23 @@ services:
     # devices:
       # - /dev/ttyUSB0:/dev/ttyUSB0 # ⚠️ Uncomment for Real Hardware Access
     volumes:
-      - ./backend:/app # Hot Reload for Dev (Optional)
+      - ./mdb_bridge:/app # Hot Reload for Dev (Optional)
 
-  # 🖥️ Frontend (Kiosk Display)
-  frontend:
+  # 🖥️ Kiosk (Display)
+  kiosk:
     build:
-      context: ./frontend
+      context: ./kiosk
       args:
         - VITE_SUPABASE_URL=${SUPABASE_URL}
         - VITE_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
         - VITE_MACHINE_ID=${MACHINE_ID:-pi_kiosk_1}
         - VITE_WEB_APP_URL=${FRONTEND_URL:-http://localhost:5174}
-    container_name: sumup-frontend
+    container_name: sumup-kiosk
     restart: always
     ports:
       - "8080:80" # Maps port 80 of container to port 8080 of host
     depends_on:
-      - backend
+      - mdb_bridge
 
   # 📱 Web App (Client Mobile App - Optional)
   # Usually hosted on Vercel/Netlify, but can be self-hosted here

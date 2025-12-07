@@ -37,8 +37,9 @@ make dev
 
 | Service | Port | URL |
 |---------|------|-----|
-| 🐍 Backend (API) | 8000 | http://localhost:8000 |
+| 🐍 Backend (Listener) | - | (Background Process) |
 | 🖥️ Frontend (UI) | 5173 | http://localhost:5173 |
+| 📱 Web App (Mobile) | 5174 | http://localhost:5174 |
 | 📚 Documentation | 3000 | http://localhost:3000 |
 
 ### Mode Kiosque (Écran DSI)
@@ -77,12 +78,12 @@ Par défaut, le système fonctionne en **mode simulation**. Vous pouvez tout tes
 ### ❌ Le QR Code ne s'affiche pas
 
 **Causes possibles :**
-- Erreur de connexion à l'API SumUp
-- Identifiants SumUp invalides
+- Erreur de connexion à Supabase
+- Identifiants SumUp invalides (dans Supabase Edge Functions)
 
 **Solution :**
-1. Vérifiez les logs dans le terminal où vous avez lancé `./run.sh`
-2. Vérifiez vos identifiants dans `backend/config.py` ou créez un fichier `.env` :
+1. Vérifiez les logs dans le terminal où vous avez lancé `make dev`
+2. Vérifiez vos variables d'environnement dans `.env`
    ```bash
    SUMUP_CLIENT_ID=votre_client_id
    SUMUP_CLIENT_SECRET=votre_secret
@@ -108,12 +109,12 @@ Par défaut, le système fonctionne en **mode simulation**. Vous pouvez tout tes
 
 **Causes possibles :**
 - Backend non démarré
-- Erreur WebSocket
+- Erreur Supabase Realtime
 
 **Solution :**
 1. Vérifiez que le Backend tourne bien (regardez les logs)
 2. Ouvrez la console du navigateur (**F12**)
-3. Cherchez des erreurs WebSocket dans l'onglet "Console"
+3. Cherchez des erreurs de connexion Supabase dans l'onglet "Console"
 
 ---
 
@@ -129,7 +130,7 @@ Pour utiliser le **vrai matériel** (Qibixx Hat + Distributeur) :
    ```
 3. **Redémarrez** le système :
    ```bash
-   ./run.sh
+   make dev
    ```
 
 > [!WARNING]

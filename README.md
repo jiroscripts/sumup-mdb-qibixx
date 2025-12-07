@@ -4,8 +4,10 @@ This project simulates a Vending Machine payment system using a Raspberry Pi, Qi
 
 ## Project Structure
 
--   `backend/`: Python FastAPI application. Handles MDB logic and SumUp API.
--   `frontend/`: React application. Displays UI on the DSI screen.
+-   `mdb_bridge/`: **Python MDB Listener**. Handles MDB hardware logic and listens to Supabase Realtime events.
+-   `kiosk/`: **React Kiosk App**. Displays UI on the DSI screen and listens to Supabase Realtime events.
+-   `web/`: **React Mobile App**. The payment page that users open on their phone to pay.
+-   `supabase/`: Database schema and Edge Functions.
 -   `docs/`: Comprehensive project documentation.
 
 ## Documentation
@@ -14,7 +16,7 @@ For detailed information, please refer to the following guides:
 
 -   [**Architecture & Data Flow**](docs/architecture.md): System overview and diagrams.
 -   [**Hardware Setup**](docs/hardware_setup.md): Wiring and configuration for Raspberry Pi & Qibixx Hat.
--   [**API Reference**](docs/api_reference.md): WebSocket protocol and Debug APIs.
+-   [**Data Model & Events**](docs/api_reference.md): Database schema and Realtime protocol.
 -   [**User Guide**](docs/user_guide.md): Installation and usage instructions.
 
 
@@ -23,47 +25,47 @@ For detailed information, please refer to the following guides:
 -   Python 3.9+
 -   Node.js 18+
 -   SumUp Developer Account (Client ID/Secret)
+-   Supabase Project
 
 ## Setup
 
-1.  **Install Backend Dependencies**:
+1.  **Install Bridge Dependencies**:
     ```bash
-    cd backend
+    cd mdb_bridge
     pip install -r requirements.txt
     cd ..
     ```
 
-2.  **Install Frontend Dependencies**:
+2.  **Install Kiosk & Web Dependencies**:
     ```bash
-    cd frontend
-    npm install
+    cd kiosk && npm install
+    cd ../web && npm install
     cd ..
     ```
 
 3.  **Configuration**:
-    -   Edit `backend/config.py` or create a `.env` file with your SumUp credentials.
-    -   By default, `MDB_SIMULATION_MODE` is `True`. Set to `False` to use real hardware.
+    -   Create a `.env` file based on `.env.example`.
+    -   Configure `MDB_SIMULATION_MODE=True` in `.env` to test without hardware.
 
 ## Running the System
 
 ```bash
-# Run the system
+# Run the system (Backend + Frontend + Web + Docs)
 make dev
 
 # Install dependencies
 make install
 ```
 
--   **Frontend**: [http://localhost:5173](http://localhost:5173)
--   **Backend API**: [http://localhost:8000](http://localhost:8000)
+-   **Frontend (Kiosk)**: [http://localhost:5173](http://localhost:5173)
+-   **Web App (Mobile)**: [http://localhost:5174](http://localhost:5174)
+-   **Backend**: Runs in background (logs to terminal)
 
 ## Simulation Guide
 
-1.  Open the Frontend in your browser.
-2.  You will see the "Debug Controls" panel at the bottom right.
-3.  Click **"Simulate VMC Request (€2.50)"**.
-    -   The screen should change to "Please pay €2.50".
-    -   A QR Code will appear.
-4.  Click **"Simulate Successful Payment"**.
-    -   The screen should show "Payment Approved!".
-    -   After 5 seconds, it returns to "Ready for order".
+1.  **Open the Kiosk** ([http://localhost:5173](http://localhost:5173)).
+2.  The **MDB Bridge** (in simulation mode) will automatically trigger a "Vend Request" every few seconds (configurable in `.env`).
+3.  The screen will show a QR Code.
+4.  Scan it with your phone (or open the URL in a new tab) to access the **Web App**.
+5.  Complete the payment on the Web App.
+6.  The Kiosk will update to "Payment Approved!" and the Bridge will approve the vend.

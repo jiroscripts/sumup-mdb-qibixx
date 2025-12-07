@@ -14,10 +14,11 @@ help:
 	@echo "Usage: make [target]"
 	@echo ""
 	@echo "Targets:"
-	@echo "  install      Install backend and frontend dependencies"
+	@echo "  install      Install all dependencies"
 	@echo "  dev          Start all services in development mode (parallel)"
-	@echo "  dev-backend  Start only the backend"
-	@echo "  dev-frontend Start only the frontend"
+	@echo "  dev-bridge   Start only the MDB Bridge (Backend)"
+	@echo "  dev-kiosk    Start only the Kiosk (Frontend)"
+	@echo "  dev-web      Start only the Web App"
 	@echo "  dev-docs     Start only the documentation server"
 	@echo "  clean        Remove build artifacts and cache"
 	@echo "  lint         Run linters (commitlint, etc)"
@@ -25,17 +26,17 @@ help:
 	@echo "  supabase-delete-all  Delete all known Edge Functions"
 
 # --- Installation ---
-install: install-backend install-frontend install-web
+install: install-bridge install-kiosk install-web
 	@echo "${GREEN}All dependencies installed!${NC}"
 
-install-backend:
+install-bridge:
 	@echo "Installing Python dependencies..."
 	@if [ ! -d "$(VENV)" ]; then $(PYTHON) -m venv $(VENV); fi
-	@. $(BIN)/activate && pip install -r backend/requirements.txt
+	@. $(BIN)/activate && pip install -r mdb_bridge/requirements.txt
 
-install-frontend:
-	@echo "Installing Frontend dependencies..."
-	@cd frontend && $(NPM) install
+install-kiosk:
+	@echo "Installing Kiosk dependencies..."
+	@cd kiosk && $(NPM) install
 
 install-web:
 	@echo "Installing Web App dependencies..."
@@ -45,14 +46,15 @@ install-web:
 dev:
 	@echo "${GREEN}Starting Development Environment...${NC}"
 
-	@echo "Web App:  http://127.0.0.1:5174"
-	@echo "Docs:     http://127.0.0.1:3000"
-	@echo "Backend:  MDB Listener (Realtime)"
+	@echo "Web App:    http://127.0.0.1:5174"
+	@echo "Docs:       http://127.0.0.1:3000"
+	@echo "Kiosk:      http://127.0.0.1:5173"
+	@echo "MDB Bridge: Running..."
 	@# Use make -j4 to run targets in parallel
-	@$(MAKE) -j4 dev-frontend dev-web dev-docs dev-backend
+	@$(MAKE) -j4 dev-kiosk dev-web dev-docs dev-bridge
 
-dev-frontend:
-	@cd frontend && $(NPM) run dev -- --port 5173 --host
+dev-kiosk:
+	@cd kiosk && $(NPM) run dev -- --port 5173 --host
 
 dev-web:
 	@cd web && $(NPM) run dev -- --port 5174 --host
@@ -60,8 +62,8 @@ dev-web:
 dev-docs:
 	@$(PYTHON) -m http.server 3000 --directory docs
 
-dev-backend:
-	@. $(BIN)/activate && $(PYTHON) backend/listener.py
+dev-bridge:
+	@. $(BIN)/activate && $(PYTHON) mdb_bridge/listener.py
 
 stop:
 	@echo "Stopping all services..."
@@ -72,8 +74,8 @@ stop:
 clean:
 	@echo "Cleaning up..."
 	@rm -rf $(VENV)
-	@rm -rf frontend/node_modules
-	@rm -rf frontend/dist
+	@rm -rf kiosk/node_modules
+	@rm -rf kiosk/dist
 	@rm -rf web/node_modules
 	@rm -rf web/dist
 	@find . -type d -name "__pycache__" -exec rm -rf {} +

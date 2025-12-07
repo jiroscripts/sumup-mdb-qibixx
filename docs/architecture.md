@@ -48,25 +48,23 @@ graph TB
 
 ## Architecture Logicielle (Raspberry Pi)
 
-### Les Deux Applications
+### Les Trois Applications
 
-Le Raspberry Pi fait tourner **deux programmes en parallèle** :
+Le système repose sur **trois composants logiciels** interconnectés via Supabase :
 
-| Programme | Technologie | Rôle |
+| Composant | Technologie | Rôle |
 |-----------|-------------|------|
-| **🐍 Backend** | Python + FastAPI | Communique avec le distributeur (MDB) et SumUp. C'est le "chef d'orchestre". |
-| **🖥️ Frontend** | React + Vite | Affiche l'interface graphique sur l'écran tactile. |
+| **🐍 MDB Bridge** | Python (Script Listener) | Gère le matériel (MDB) et écoute les ordres de Supabase. |
+| **🖥️ Kiosk** | React + Vite | Interface affichée sur l'écran du distributeur. Écoute Supabase pour afficher les QR. |
+| **📱 Web App** | React + Vite | Interface de paiement sur le téléphone du client. Initie les transactions SumUp. |
 
-### Comment Ils Communiquent
+### Le Hub Central : Supabase
 
-Les deux programmes se parlent via **WebSocket** (connexion temps réel) :
+Contrairement à une architecture classique Client-Serveur, ici **tout passe par Supabase**. Il n'y a pas de communication directe entre le Backend Python et le Frontend React.
 
-1. **Le Backend reçoit** une demande du distributeur via MDB
-2. **Le Backend envoie** un message WebSocket au Frontend : "Affiche l'écran de paiement"
-3. **Le Frontend affiche** le QR Code à l'écran
-4. **Le Backend contacte** SumUp pour créer le paiement
-5. **Le Backend envoie** le QR Code au Frontend via WebSocket
-6. **Le Frontend affiche** le QR Code au client
+*   **Database** : Stocke l'état des sessions de vente (`vend_sessions`).
+*   **Realtime** : Notifie le Backend et le Frontend des changements (ex: nouveau QR code, paiement validé).
+*   **Edge Functions** : Gère la logique métier sécurisée (création checkout SumUp, webhooks).
 
 ### Schéma du Flux de Données
 
@@ -74,57 +72,39 @@ Les deux programmes se parlent via **WebSocket** (connexion temps réel) :
 %%{init: {'theme':'dark', 'themeVariables': { 'fontSize':'20px'}}}%%
 graph LR
     MDB["📡 Service MDB"]
-    Payment["💳 Web App (Client)"]
-    API["🔌 Backend (Listener)"]
-    Supabase["🗄️ Supabase DB"]
-    Edge["⚡ Edge Functions"]
-    UI["🖥️ Frontend (Kiosk)"]
+    Bridge["🐍 MDB Bridge"]
+    Supabase["🗄️ Supabase (DB + Realtime)"]
+    Kiosk["🖥️ Kiosk (Display)"]
+    WebApp["📱 Web App (Client)"]
+    SumUp["☁️ SumUp API"]
 
-    MDB -->|1. VEND_REQ| API
-    API -->|2. INSERT vend_sessions| Supabase
-    Supabase -->|3. Realtime INSERT| UI
-    UI -->|4. Affiche QR| UI
+    %% Flux Vente
+    MDB -->|1. VEND_REQ| Bridge
+    Bridge -->|2. INSERT session| Supabase
+    Supabase -->|3. Realtime INSERT| Kiosk
+    Kiosk -->|4. Affiche QR| Kiosk
     
-    Payment -->|5. Scan QR & Pay| Edge
-    Edge -->|6. initiate-wallet-recharge| Supabase
-    Edge -->|7. handle-sumup-webhook| Supabase
-    Edge -->|8. process-payment| Supabase
+    %% Flux Paiement
+    WebApp -->|5. Scan QR & Pay| Supabase
+    Supabase -->|6. Call Edge Function| SumUp
+    SumUp -->|7. Webhook (PAID)| Supabase
     
-    Supabase -->|9. Realtime UPDATE (PAID)| API
-    API -->|10. APPROVE| MDB
+    %% Flux Validation
+    Supabase -->|8. Realtime UPDATE (PAID)| Bridge
+    Supabase -->|9. Realtime UPDATE (PAID)| Kiosk
+    Bridge -->|10. APPROVE| MDB
 ```
 
 ## Diagramme de Séquence : Flux de Paiement
 
 ### Le Parcours Complet d'une Transaction
 
-Voici ce qui se passe **étape par étape** quand un client achète un produit :
-
-#### Phase 1 : Demande de Paiement
-1. **Le client appuie** sur le bouton "Coca-Cola" du distributeur
-2. **Le distributeur (VMC) envoie** au Backend : "Je veux 2.50€"
-3. **Le Backend dit** au Frontend : "Passe en mode PROCESSING"
-4. **L'écran affiche** : "Chargement..."
-
-#### Phase 2 : Génération du QR Code
-5. **Le Backend contacte** l'API SumUp : "Crée un paiement de 2.50€"
-6. **SumUp répond** avec un QR Code unique
-7. **Le Backend envoie** le QR Code au Frontend
-8. **L'écran affiche** le QR Code en grand
-
-#### Phase 3 : Paiement Client
-9. **Le client scanne** le QR Code avec son téléphone
-10. **Le client paie** via l'application SumUp
-11. **Le Backend vérifie** régulièrement auprès de SumUp : "C'est payé ?"
-12. **SumUp confirme** : "Oui, paiement validé !"
-
-#### Phase 4 : Distribution du Produit
-13. **Le Backend dit** au Frontend : "Passe en mode SUCCESS"
-14. **L'écran affiche** : "Paiement validé !"
-15. **Le Backend dit** au distributeur : "APPROVE - Libère le produit"
-16. **Le distributeur distribue** le Coca-Cola
-
-### Diagramme Technique
+1.  **Demande (VMC -> Bridge)** : Le distributeur demande un paiement (ex: 2.50€).
+2.  **Création Session (Bridge -> Supabase)** : Le Bridge crée une ligne dans `vend_sessions` avec `status='PENDING'`.
+3.  **Affichage (Supabase -> Kiosk)** : Le Kiosk reçoit l'événement `INSERT` et affiche le QR Code correspondant à la session.
+4.  **Paiement (Client -> Web App)** : Le client scanne le QR code, ouvre la Web App, et paie via SumUp.
+5.  **Validation (SumUp -> Supabase)** : SumUp notifie Supabase (via Webhook) que le paiement est réussi. Le statut passe à `PAID`.
+6.  **Distribution (Supabase -> Bridge)** : Le Bridge reçoit l'événement `UPDATE` (`status='PAID'`) et envoie la commande `APPROVE` au distributeur.
 
 ### Diagramme Technique
 
@@ -132,35 +112,38 @@ Voici ce qui se passe **étape par étape** quand un client achète un produit :
 %%{init: {'theme':'dark', 'themeVariables': { 'fontSize':'20px'}}}%%
 sequenceDiagram
     participant VMC as 🏪 VMC
-    participant Backend as 🐍 Backend
+    participant Bridge as 🐍 MDB Bridge
     participant Supabase as 🗄️ Supabase
-    participant Frontend as 🖥️ Frontend
+    participant Kiosk as 🖥️ Kiosk
+    participant WebApp as 📱 Web App
     participant User as 👤 Client
-    participant Edge as ⚡ Edge Functions
     participant SumUp as ☁️ SumUp
 
     Note over VMC,User: État: IDLE
 
-    VMC->>Backend: VEND_REQUEST (2.50€)
-    activate Backend
-    Backend->>Supabase: INSERT vend_sessions (PENDING)
-    Supabase-->>Frontend: Realtime: INSERT
-    Frontend-->>User: Affiche QR Code
+    VMC->>Bridge: VEND_REQUEST (2.50€)
+    activate Bridge
+    Bridge->>Supabase: INSERT vend_sessions (PENDING)
+    Supabase-->>Kiosk: Realtime: INSERT
+    Kiosk-->>User: Affiche QR Code
     
-    User->>Edge: initiate-wallet-recharge
-    Edge->>SumUp: Create Checkout
-    SumUp-->>User: Formulaire Paiement
+    User->>WebApp: Scan QR & Open URL
+    WebApp->>Supabase: Edge Function: initiate-payment
+    Supabase->>SumUp: Create Checkout
+    SumUp-->>WebApp: Formulaire Paiement
     
     User->>SumUp: Valide Paiement
-    SumUp->>Edge: Webhook (PAID)
-    Edge->>Supabase: UPDATE transactions (COMPLETED)
+    SumUp->>Supabase: Webhook (PAID)
     
-    User->>Edge: process-payment (Pay Coffee)
-    Edge->>Supabase: UPDATE vend_sessions (PAID)
+    par Notification Parallèle
+        Supabase-->>Kiosk: Realtime: UPDATE (PAID)
+        Kiosk-->>User: "Paiement Validé !"
+    and
+        Supabase-->>Bridge: Realtime: UPDATE (PAID)
+        Bridge->>VMC: APPROVE
+    end
     
-    Supabase-->>Backend: Realtime: UPDATE (PAID)
-    Backend->>VMC: APPROVE
-    deactivate Backend
+    deactivate Bridge
     
     VMC-->>User: Distribue produit
 ```

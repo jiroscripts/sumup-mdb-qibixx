@@ -1,62 +1,76 @@
-# Référence API & WebSocket
+# Modèle de Données & Événements Realtime
+ 
+Ce document décrit le schéma de base de données Supabase et les événements Realtime utilisés pour la communication entre les composants.
 
-## WebSocket Protocol
+## Base de Données (Supabase)
 
-**URL** : `ws://<IP>:8000/ws`
+### Table `vend_sessions`
 
-Le Frontend maintient une connexion permanente avec le Backend via WebSocket pour recevoir les mises à jour d'état en temps réel.
+Cette table est le cœur du système. Elle stocke l'état de chaque transaction.
 
-### Messages Serveur -> Client (Frontend)
+| Colonne | Type | Description |
+|---------|------|-------------|
+| `id` | `uuid` | Identifiant unique de la session (Primary Key). |
+| `created_at` | `timestamptz` | Date de création. |
+| `amount` | `numeric` | Montant de la transaction (ex: 2.50). |
+| `status` | `text` | État actuel : `PENDING`, `PAID`, `COMPLETED`, `FAILED`. |
+| `checkout_id` | `text` | ID du checkout SumUp (optionnel). |
+| `metadata` | `jsonb` | Données additionnelles (ex: `machine_id`). |
 
-Tous les messages sont au format JSON avec un champ `type`.
+## Protocole Realtime
 
-#### 1. Changement d'État
-Indique un changement global de l'interface (ex: passage de IDLE à PROCESSING).
+Le Bridge et le Kiosk s'abonnent aux changements sur la table `vend_sessions`.
+
+### 1. Nouvelle Demande (Bridge -> Kiosk)
+
+**Déclencheur** : Le Bridge insère une nouvelle ligne dans `vend_sessions`.
+**Événement** : `INSERT` sur `vend_sessions`.
+
+**Payload (reçu par le Kiosk)** :
 ```json
 {
-  "type": "STATE_CHANGE",
-  "state": "IDLE | PROCESSING | SHOW_QR | SUCCESS | ERROR"
+  "new": {
+    "id": "a1b2c3d4-...",
+    "amount": 2.50,
+    "status": "PENDING",
+    "metadata": { "machine_id": "pi_kiosk_1" }
+  }
+}
+```
+**Action Kiosk** : Affiche le QR Code généré à partir de l'ID de session.
+
+### 2. Paiement Validé (Supabase -> Bridge & Kiosk)
+
+**Déclencheur** : Le Webhook SumUp (via Edge Function) met à jour le statut à `PAID`.
+**Événement** : `UPDATE` sur `vend_sessions` où `status=PAID`.
+
+**Payload** :
+```json
+{
+  "new": {
+    "id": "a1b2c3d4-...",
+    "status": "PAID",
+    ...
+  },
+  "old": { "status": "PENDING" }
 }
 ```
 
-#### 2. Afficher QR Code
-Envoyé quand une transaction est initiée et que le QR est prêt.
-```json
-{
-  "type": "SHOW_QR",
-  "qr_url": "https://...",
-  "amount": 2.50,
-  "checkout_id": "chk_123456"
-}
-```
+**Action Bridge** : Envoie la commande `APPROVE` au distributeur pour libérer le produit.
+**Action Kiosk** : Affiche "Paiement Validé".
 
-#### 3. Erreur
-Envoyé en cas de problème (ex: échec création paiement).
-```json
-{
-  "type": "ERROR",
-  "message": "Description de l'erreur"
-}
-```
+### 3. Fin de Transaction (Bridge -> Supabase)
 
----
+**Déclencheur** : Le Bridge a confirmé la distribution.
+**Action** : Le Bridge met à jour le statut à `COMPLETED`.
 
-## API REST (Backend)
+## Edge Functions
 
-Ces endpoints sont principalement utilisés pour le debug ou par le frontend pour des actions ponctuelles.
+### `initiate-wallet-recharge`
+*   **Rôle** : Crée un checkout SumUp pour recharger le wallet (ou payer directement).
+*   **Input** : `{ "amount": 2.50, "session_id": "..." }`
+*   **Output** : `{ "checkout_id": "...", "next_step": "..." }`
 
-### Simulation (Debug)
-
-#### Simuler une demande VMC
-`POST /api/simulate/vend/{amount}`
-
-Simule la réception d'un signal `VEND_REQUEST` du distributeur.
-*   **Paramètres** : `amount` (float) - Montant demandé (ex: 2.50).
-*   **Réponse** : `200 OK`
-
-#### Simuler un Paiement Réussi
-`POST /api/simulate/payment/{checkout_id}`
-
-Force le backend à considérer un paiement comme validé.
-*   **Paramètres** : `checkout_id` (string) - ID du checkout (reçu via WS).
-*   **Réponse** : `200 OK`
+### `handle-sumup-webhook`
+*   **Rôle** : Reçoit les notifications de SumUp.
+*   **Action** : Met à jour la table `transactions` et `vend_sessions` si le paiement est réussi.
