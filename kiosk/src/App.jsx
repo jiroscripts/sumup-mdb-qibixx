@@ -96,53 +96,58 @@ function App() {
     }, [currentSessionId, handleNewSession, handleSessionUpdate, addLog]);
 
     return (
-        <div className="flex flex-col min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white p-6 text-center font-sans transition-colors duration-200">
-            <header className="mb-8 relative">
+        <div className="flex flex-col md:flex-row min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white p-4 font-sans transition-colors duration-200 overflow-hidden">
+            {/* Left Panel: Status & QR */}
+            <div className="flex-1 flex flex-col items-center justify-center p-4 relative">
                 <button
                     onClick={toggleTheme}
-                    className="absolute right-0 top-0 p-2 rounded-full text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                    className="absolute left-4 top-4 p-2 rounded-full text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors z-10"
                 >
                     {theme === 'dark' ? '☀️' : '🌙'}
                 </button>
-                <h1 className="text-4xl font-bold mb-2 flex items-center justify-center gap-3">
-                    <span className="text-5xl">☕</span>
-                    <span>Kiosk Display</span>
-                </h1>
-                <div className={`text-2xl font-semibold transition-colors duration-300 ${status === 'SUCCESS' ? 'text-green-600 dark:text-green-400' :
-                    status === 'ERROR' ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-200'
-                    }`}>
-                    {message}
-                </div>
-            </header>
 
-            <main className="flex-1 flex flex-col items-center justify-center">
-                {status === "SHOW_QR" && qrData && (
-                    <div className="bg-white p-8 rounded-3xl shadow-2xl animate-fade-in">
-                        <QRCode value={qrData} size={300} />
-                        <p className="text-gray-900 font-bold text-xl mt-4">Scan to Pay €{amount}</p>
+                <header className="mb-6 text-center">
+                    <h1 className="text-3xl font-bold mb-2 flex items-center justify-center gap-3">
+                        <span className="text-4xl">☕</span>
+                        <span>Kiosk Display</span>
+                    </h1>
+                    <div className={`text-xl font-semibold transition-colors duration-300 ${status === 'SUCCESS' ? 'text-green-600 dark:text-green-400' :
+                        status === 'ERROR' ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-200'
+                        }`}>
+                        {message}
                     </div>
-                )}
+                </header>
 
-                {status === "SUCCESS" && (
-                    <div className="text-9xl animate-bounce">✅</div>
-                )}
+                <main className="flex-1 flex items-center justify-center w-full">
+                    {status === "SHOW_QR" && qrData && (
+                        <div className="bg-white p-4 rounded-2xl shadow-xl animate-fade-in transform scale-90 md:scale-100">
+                            <QRCode value={qrData} size={200} />
+                            <p className="text-gray-900 font-bold text-lg mt-2 text-center">Scan to Pay €{amount}</p>
+                        </div>
+                    )}
 
-                {status === "IDLE" && (
-                    <div className="text-gray-500 dark:text-gray-400 text-xl animate-pulse">
-                        Waiting for selection...
-                    </div>
-                )}
-            </main>
+                    {status === "SUCCESS" && (
+                        <div className="text-8xl animate-bounce">✅</div>
+                    )}
 
-            <footer className="mt-auto pt-8 w-full max-w-2xl mx-auto">
-                <div className="text-left bg-gray-900 border border-gray-700 rounded-xl p-4 shadow-lg font-mono">
-                    <div className="flex items-center gap-2 mb-2 border-b border-gray-800 pb-2">
+                    {status === "IDLE" && (
+                        <div className="text-gray-500 dark:text-gray-400 text-lg animate-pulse">
+                            Waiting for selection...
+                        </div>
+                    )}
+                </main>
+            </div>
+
+            {/* Right Panel: Terminal Logs */}
+            <div className="w-full md:w-1/3 h-48 md:h-auto p-2 md:p-4 border-t md:border-t-0 md:border-l border-gray-200 dark:border-gray-800 bg-gray-100 dark:bg-black/20">
+                <div className="h-full flex flex-col text-left bg-gray-900 border border-gray-700 rounded-xl p-4 shadow-lg font-mono">
+                    <div className="flex items-center gap-2 mb-2 border-b border-gray-800 pb-2 flex-shrink-0">
                         <div className="w-3 h-3 rounded-full bg-red-500"></div>
                         <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
                         <div className="w-3 h-3 rounded-full bg-green-500"></div>
                         <span className="text-xs text-gray-500 ml-2">system@kiosk:~</span>
                     </div>
-                    <div className="text-xs text-green-400 space-y-1 max-h-32 overflow-y-auto scrollbar-hide">
+                    <div className="flex-1 text-xs text-green-400 space-y-1 overflow-y-auto scrollbar-hide font-mono">
                         {logs.length === 0 && <span className="opacity-50 text-gray-500">_ waiting for input...</span>}
                         {logs.map((log, i) => (
                             <div key={i} className="break-all">
@@ -153,7 +158,7 @@ function App() {
                         <div className="animate-pulse">_</div>
                     </div>
                 </div>
-            </footer>
+            </div>
         </div>
     );
 }
