@@ -173,4 +173,13 @@ supabase-stop:
 create-kiosk-user:
 	@echo "Creating Kiosk User..."
 	@npm install dotenv @supabase/supabase-js --no-save
-	@node scripts/create-kiosk-user.js
+	@node scripts/create-kiosk-users.js
+
+reset-all: supabase-delete-all
+	@echo "${GREEN}Resetting Database...${NC}"
+	@npx supabase db reset --linked --yes
+	@echo "${GREEN}Redeploying Functions...${NC}"
+	@make supabase-deploy
+	@echo "${GREEN}Recreating Users...${NC}"
+	@make create-kiosk-user
+	@echo "${GREEN}✅ Full Reset Complete!${NC}"
