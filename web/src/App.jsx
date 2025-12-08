@@ -17,7 +17,7 @@ function App() {
                     <Route path="/wallet" element={<WalletPage />} />
                     <Route path="/recharge" element={<RechargePage />} />
                     <Route path="/" element={
-                        <div style={{ textAlign: 'center', padding: '50px' }}>
+                        <div className="text-center p-12">
                             <h1>Vending Machine Web App</h1>
                             <p>Scan the QR code on the machine to pay.</p>
                         </div>
