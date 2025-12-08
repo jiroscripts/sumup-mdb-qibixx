@@ -1,0 +1,58 @@
+# Project Context & Rules
+
+## Meta-Rules
+- **Pattern Detection**: If you identify a recurring pattern, convention, or architectural decision in the codebase that is not covered here, you MUST explicitly propose adding it to this `.cursorrules` file.
+
+## Tech Stack
+- **Frontend**: React 18+, Vite, Tailwind CSS.
+- **Backend**: Supabase (PostgreSQL, Auth, Realtime, Storage).
+- **Bridge**: Python 3.x (Asyncio, Supabase-py).
+- **Package Manager**: npm.
+
+## Core Conventions
+
+### 1. Coding Style
+- **Indentation**: Use **4 spaces** for indentation across all files (JS, JSX, Py, SQL).
+- **Naming**:
+  - JS/React: `camelCase` for variables/functions, `PascalCase` for components.
+  - Python/SQL: `snake_case` for everything.
+  - Environment Variables: `UPPER_CASE` (e.g., `VITE_MACHINE_ID`).
+- **Commits**: MUST follow **Conventional Commits** format:
+  - `feat(scope): description`
+  - `fix(scope): description`
+  - `refactor(scope): description`
+  - Scopes: `kiosk`, `web`, `bridge`, `db`, `docs`.
+
+### 2. Frontend (Kiosk & Web)
+- **Design System**:
+  - ALWAYS use the custom `tailwind-preset.js`.
+  - **Typography**: Enforce Monospace fonts everywhere (the preset maps `sans` to mono fonts).
+  - **Theme**: Dark mode by default (GitHub Dark Dimmed style).
+- **State**: Prefer local state + Supabase Realtime subscriptions for live data.
+- **Env**: Access via `import.meta.env`.
+
+### 3. Backend (Supabase)
+- **Security**:
+  - Enable **RLS** (Row Level Security) on ALL tables.
+  - Use `service_role` only when absolutely necessary (e.g., Bridge operations).
+- **Logic**:
+  - Complex business logic (payments, inventory) MUST be in **PL/PGSQL functions** (RPC) to ensure atomicity.
+  - Use `security definer` functions carefully.
+- **Migrations**:
+  - All schema changes must be in `supabase/migrations` with timestamp prefixes.
+
+### 4. Bridge (Python)
+- **Async/Concurrency**: Use a **Hybrid Model**:
+  - **Network/DB**: Use `asyncio` (Supabase, WebSockets).
+  - **Hardware (Serial)**: Use `threading` for blocking I/O to ensure protocol stability.
+- **Typing**: Use Python type hints where possible.
+- **Logging**: Use standard `logging` library, not `print`.
+
+### 5. Documentation
+- **Mermaid Diagrams**:
+  - Always use **double quotes** `""` for labels and aliases containing spaces or emojis (e.g., `participant A as "🐍 Python"`).
+  - Prefer `flowchart` over `graph` for better rendering.
+
+## Workflow
+- **Linting**: Run `npm run lint` or `make lint` before finalizing changes.
+- **Testing**: Ensure simulation modes (if any) are configurable via `.env`.
