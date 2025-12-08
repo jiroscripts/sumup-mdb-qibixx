@@ -168,10 +168,7 @@ supabase-start:
 supabase-stop:
 	@npx supabase stop
 
-setup-webhook:
-	@echo "Installing dependencies for script..."
-	@npm install dotenv node-fetch --no-save
-	@node scripts/setup-webhook.js
+
 
 create-kiosk-user:
 	@echo "Creating Kiosk User..."

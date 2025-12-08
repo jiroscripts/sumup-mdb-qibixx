@@ -1,5 +1,10 @@
 const { createClient } = require('@supabase/supabase-js');
-require('dotenv').config();
+const dotenv = require('dotenv');
+
+// Load runtime config
+dotenv.config();
+// Load admin config (overrides if present)
+dotenv.config({ path: '.env.local' });
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
