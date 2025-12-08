@@ -141,7 +141,7 @@ supabase-deploy:
 	@npx supabase functions deploy --no-verify-jwt
 
 supabase-push-env:
-	@npx supabase secrets set --env-file .env
+	@npx supabase secrets set --env-file .env.local
 
 supabase-link:
 	@# Explicitly source .env to ensure variables are available to the shell
