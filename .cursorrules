@@ -31,6 +31,9 @@
   - **Theme**: Dark mode by default (GitHub Dark Dimmed style).
 - **State**: Prefer local state + Supabase Realtime subscriptions for live data.
 - **Env**: Access via `import.meta.env`.
+- **Language Strictness**:
+  - **JS/JSX**: Do NOT use TypeScript syntax (e.g., `<any>`, `: string`) in `.js` or `.jsx` files.
+  - **TS/TSX**: Do NOT remove types from `.ts` or `.tsx` files.
 
 ### 3. Backend (Supabase)
 - **Security**:
@@ -53,6 +56,19 @@
 - **Mermaid Diagrams**:
   - Always use **double quotes** `""` for labels and aliases containing spaces or emojis (e.g., `participant A as "🐍 Python"`).
   - Prefer `flowchart` over `graph` for better rendering.
+
+## Seniority & Rigor (Critical Standards)
+- **Professionalism**:
+  - Adopt a "Senior Engineer" mindset: prioritize robustness, security, and maintainability over speed or "hacky" fixes.
+  - Assume this application handles **real money**: code must be production-ready, idempotent, and transactional.
+- **No "MacGyver" Solutions**:
+  - **NEVER** implement custom cryptographic or security-related functions (e.g., custom UUID generators, hashing).
+  - **ALWAYS** use industry-standard libraries (e.g., `uuid` package, Web Crypto API).
+  - If a standard library is missing, propose installing it (`npm install`) immediately rather than writing a polyfill.
+- **Code Quality**:
+  - Use **Guard Clauses** to reduce nesting and improve readability.
+  - Extract complex logic into small, single-responsibility functions or hooks.
+  - Handle errors explicitly and professionally (no generic "Error" alerts without context).
 
 ## Workflow
 - **Linting**: Run `npm run lint` or `make lint` before finalizing changes.
