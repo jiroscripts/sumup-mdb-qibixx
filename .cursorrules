@@ -44,6 +44,7 @@
   - Use `security definer` functions carefully.
 - **Migrations**:
   - All schema changes must be in `supabase/migrations` with timestamp prefixes.
+  - **Consolidation Rule**: During active development, if you need to fix or modify a feature introduced in a recent migration, **DO NOT create a new migration file**. Instead, **edit the existing migration file** directly and re-apply it (`db reset`). Keep the migration history clean and semantic.
 
 ### 4. Bridge (Python)
 - **Async/Concurrency**: Use a **Hybrid Model**:
