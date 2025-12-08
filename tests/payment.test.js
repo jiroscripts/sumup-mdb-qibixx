@@ -68,7 +68,8 @@ describe('E2E Payment Flow', () => {
         // In a real scenario, the client calls an Edge Function which calls this RPC.
         const { data: paymentData, error: paymentError } = await adminClient.rpc('process_vend_payment', {
             p_session_id: sessionId,
-            p_user_id: userId
+            p_user_id: userId,
+            p_idempotency_key: 'e2e_test_' + Date.now()
         });
         expect(paymentError).toBeNull();
         expect(paymentData.success).toBe(true);

@@ -20,7 +20,7 @@ describe('Security Permissions (RBAC)', () => {
             p_machine_id: 'test_machine'
         });
         expect(error).toBeDefined();
-        expect(error.message).toContain('Access Denied');
+        expect(error.message).toMatch(/Access denied/i);
     });
 
     it('Display User should NOT be able to create sessions', async () => {
@@ -35,7 +35,7 @@ describe('Security Permissions (RBAC)', () => {
             p_machine_id: 'test_machine'
         });
         expect(error).toBeDefined();
-        expect(error.message).toContain('Access Denied');
+        expect(error.message).toMatch(/Access denied/i);
     });
 
     it('Display User should be able to READ sessions', async () => {

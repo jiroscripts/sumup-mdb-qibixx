@@ -67,7 +67,8 @@ describe('Payment Edge Cases', () => {
 
         const { error } = await adminClient.rpc('process_vend_payment', {
             p_session_id: sessionId,
-            p_user_id: userId
+            p_user_id: userId,
+            p_idempotency_key: 'test_idempotency_insufficient_' + Date.now()
         });
 
         expect(error).toBeDefined();
@@ -83,8 +84,11 @@ describe('Payment Edge Cases', () => {
         const sessionId = await createSession(2.00);
 
         // Launch 2 payments simultaneously
-        const pay1 = adminClient.rpc('process_vend_payment', { p_session_id: sessionId, p_user_id: userId });
-        const pay2 = adminClient.rpc('process_vend_payment', { p_session_id: sessionId, p_user_id: userId });
+        // Launch 2 payments simultaneously with DIFFERENT idempotency keys (to test race condition, not idempotency)
+        // If we used the same key, the second one would just return success (idempotent replay).
+        // Here we want to verify that the database LOCKS prevent double spending even if keys are different.
+        const pay1 = adminClient.rpc('process_vend_payment', { p_session_id: sessionId, p_user_id: userId, p_idempotency_key: 'race_1_' + Date.now() });
+        const pay2 = adminClient.rpc('process_vend_payment', { p_session_id: sessionId, p_user_id: userId, p_idempotency_key: 'race_2_' + Date.now() });
 
         const results = await Promise.allSettled([pay1, pay2]);
 
@@ -106,14 +110,14 @@ describe('Payment Edge Cases', () => {
         const sessionId = await createSession(2.00);
 
         // First payment: Success
-        const { error: err1 } = await adminClient.rpc('process_vend_payment', { p_session_id: sessionId, p_user_id: userId });
+        const { error: err1 } = await adminClient.rpc('process_vend_payment', { p_session_id: sessionId, p_user_id: userId, p_idempotency_key: 'paid_1_' + Date.now() });
         expect(err1).toBeNull();
 
         // Second payment: Fail
-        const { error: err2 } = await adminClient.rpc('process_vend_payment', { p_session_id: sessionId, p_user_id: userId });
+        const { error: err2 } = await adminClient.rpc('process_vend_payment', { p_session_id: sessionId, p_user_id: userId, p_idempotency_key: 'paid_2_' + Date.now() });
 
         expect(err2).toBeDefined();
         // The error message depends on your RPC logic, usually "Session is not PENDING" or similar
-        expect(err2.message).toMatch(/(not PENDING|already processed|Session is not valid)/i);
+        expect(err2.message).toMatch(/(Session already used|Session invalid)/i);
     });
 });
