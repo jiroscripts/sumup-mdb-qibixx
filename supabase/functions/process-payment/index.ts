@@ -31,57 +31,19 @@ serve(async (req) => {
             Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
         )
 
-        // 3. Fetch Vend Session (Secure Price Source)
-        const { data: vendSession, error: sessionError } = await supabaseAdmin
-            .from('vend_sessions')
-            .select('*')
-            .eq('id', session_id)
-            .single()
+        // 3. Call Atomic RPC
+        const { data, error } = await supabaseAdmin.rpc('process_vend_payment', {
+            p_session_id: session_id,
+            p_user_id: user.id
+        })
 
-        if (sessionError || !vendSession) throw new Error("Invalid or expired session")
-        if (vendSession.status !== 'PENDING') throw new Error("Session already processed")
-
-        const PRICE = vendSession.amount
-
-        // 4. Check Balance
-        const { data: wallet } = await supabaseAdmin
-            .from('wallets')
-            .select('balance')
-            .eq('user_id', user.id)
-            .single()
-
-        if (!wallet || wallet.balance < PRICE) {
-            throw new Error("Insufficient funds")
-        }
-
-        // 5. Debit Wallet via Transaction
-        const { error: txError } = await supabaseAdmin
-            .from('transactions')
-            .insert({
-                user_id: user.id,
-                amount: -PRICE,
-                type: 'VEND',
-                status: 'COMPLETED',
-                description: 'Coffee Purchase',
-                metadata: { source: 'web_wallet', session_id: session_id }
-            })
-
-        if (txError) throw new Error("Transaction failed. Please try again.")
-
-        // 6. Mark Session as PAID
-        const { error: updateError } = await supabaseAdmin
-            .from('vend_sessions')
-            .update({ status: 'PAID', metadata: { ...vendSession.metadata, paid_by: user.id } })
-            .eq('id', session_id)
-
-        if (updateError) {
-            // Critical: If we fail to mark paid, we should refund or retry.
-            // For now, we assume this works if transaction worked.
-            console.error("Failed to update session status", updateError)
+        if (error) {
+            console.error("RPC Error:", error)
+            throw new Error(error.message || "Payment failed")
         }
 
         return new Response(
-            JSON.stringify({ success: true, new_balance: wallet.balance - PRICE }),
+            JSON.stringify(data),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
 

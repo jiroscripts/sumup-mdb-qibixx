@@ -1,12 +1,17 @@
 # Stage 1: Build
 FROM node:18-alpine as builder
 
-WORKDIR /app
+WORKDIR /app/kiosk
 
-COPY package*.json ./
+# Copy package files from kiosk directory
+COPY kiosk/package*.json ./
 RUN npm install
 
-COPY . .
+# Copy shared config to parent directory
+COPY tailwind-preset.js /app/tailwind-preset.js
+
+# Copy kiosk source code
+COPY kiosk/ .
 
 # Build Arguments (passed from docker-compose)
 ARG VITE_SUPABASE_URL
@@ -25,8 +30,8 @@ RUN npm run build
 # Stage 2: Serve
 FROM nginx:alpine
 
-COPY --from=builder /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=builder /app/kiosk/dist /usr/share/nginx/html
+COPY kiosk/nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
 
