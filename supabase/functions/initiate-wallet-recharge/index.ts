@@ -13,19 +13,32 @@ serve(async (req) => {
     }
 
     try {
-        const { amount, user_id } = await req.json()
+        const { amount } = await req.json()
 
-        if (!amount || !user_id) {
-            throw new Error("Missing amount or user_id")
+        if (!amount) {
+            throw new Error("Missing amount")
         }
 
-        const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY')
         const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
+        const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')
+        const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY')
         const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 
-        if (!STRIPE_SECRET_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+        if (!STRIPE_SECRET_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !SUPABASE_ANON_KEY) {
             throw new Error("Server configuration error: Missing Env Vars")
         }
+
+        // 1. Verify User Identity
+        const supabaseClient = createClient(
+            SUPABASE_URL,
+            SUPABASE_ANON_KEY,
+            { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+        )
+
+        const { data: { user }, error: userError } = await supabaseClient.auth.getUser()
+        if (userError || !user) throw new Error("Unauthorized")
+
+        const user_id = user.id
 
         const stripe = new Stripe(STRIPE_SECRET_KEY, {
             apiVersion: '2022-11-15',

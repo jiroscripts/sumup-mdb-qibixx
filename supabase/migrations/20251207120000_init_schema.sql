@@ -1,5 +1,8 @@
 -- ⚠️ DANGER: This will delete all wallet data!
 
+-- 0. Enable Extensions
+create extension if not exists pgcrypto with schema extensions;
+
 -- 1. Clean up old objects
 -- We use CASCADE to automatically remove dependent triggers, views, and foreign keys.
 drop table if exists public.vend_requests cascade;

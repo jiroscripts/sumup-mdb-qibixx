@@ -98,7 +98,21 @@ async def main():
     while True:
         try:
             # Re-initialize client on restart to ensure fresh connection
-            supabase = await create_async_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+            if Config.KIOSK_EMAIL and Config.KIOSK_PASSWORD:
+                logger.info(f"🔐 Authenticating as {Config.KIOSK_EMAIL}...")
+                # Use Anon Key initially, then sign in
+                supabase = await create_async_client(SUPABASE_URL, Config.SUPABASE_ANON_KEY)
+                await supabase.auth.sign_in_with_password({
+                    "email": Config.KIOSK_EMAIL,
+                    "password": Config.KIOSK_PASSWORD
+                })
+                logger.info("✅ Authenticated successfully.")
+            elif SUPABASE_SERVICE_ROLE_KEY:
+                logger.warning("⚠️ Using SERVICE_ROLE_KEY (Admin Mode). This is insecure for production Kiosks.")
+                supabase = await create_async_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+            else:
+                logger.error("❌ No authentication credentials found (Email/Pass or Service Key).")
+                return
 
             logger.info("🔌 Connecting to Supabase Realtime...")
             channel = supabase.channel('vend_sessions_listener')
