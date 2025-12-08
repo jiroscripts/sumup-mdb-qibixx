@@ -68,29 +68,39 @@ Contrairement à une architecture classique Client-Serveur, ici **tout passe par
 ### Schéma du Flux de Données
 
 ```mermaid
-graph LR
-    MDB["📡 Service MDB"]
-    Bridge["🐍 MDB Bridge"]
-    Supabase["🗄️ Supabase (DB + Realtime)"]
-    Kiosk["🖥️ Kiosk (Display)"]
-    WebApp["📱 Web App (Client)"]
-    Stripe["☁️ Stripe API"]
+flowchart TB
+    %% Styles
+    classDef hardware fill:#2d333b,stroke:#444c56,color:#adbac7
+    classDef cloud fill:#2d333b,stroke:#e3b341,color:#adbac7
+    classDef user fill:#2d333b,stroke:#238636,color:#adbac7
 
-    %% Flux Vente
-    MDB -->|1. VEND_REQ| Bridge
-    Bridge -->|2. INSERT session| Supabase
-    Supabase -->|3. Realtime INSERT| Kiosk
-    Kiosk -->|4. Affiche QR| Kiosk
+    subgraph Local ["📍 Local Device (Raspberry Pi)"]
+        direction TB
+        MDB("📡 VMC (Machine)"):::hardware
+        Bridge("🐍 Bridge Service"):::hardware
+        Kiosk("🖥️ Kiosk Display"):::hardware
+    end
+
+    subgraph Cloud ["☁️ Cloud Services"]
+        direction TB
+        Supabase("🗄️ Supabase<br/>(DB + Realtime)"):::cloud
+        Stripe("💳 Stripe API"):::cloud
+    end
+
+    subgraph Client ["👤 User"]
+        WebApp("📱 Mobile WebApp"):::user
+    end
+
+    %% Connections
+    MDB <-->|Serial / GPIO| Bridge
+    Bridge <-->|WebSockets| Supabase
+    Kiosk <-->|WebSockets| Supabase
     
-    %% Flux Paiement
-    WebApp -->|5. Scan QR & Pay| Supabase
-    Supabase -->|6. Call Edge Function| Stripe
-    Stripe -->|7. Webhook (PAID)| Supabase
+    WebApp -->|HTTPS| Supabase
+    Supabase <-->|API| Stripe
     
-    %% Flux Validation
-    Supabase -->|8. Realtime UPDATE (PAID)| Bridge
-    Supabase -->|9. Realtime UPDATE (PAID)| Kiosk
-    Bridge -->|10. APPROVE| MDB
+    %% Implicit Flow (Scan)
+    Kiosk -.->|Scan QR| WebApp
 ```
 
 ## Diagramme de Séquence : Flux de Paiement
@@ -108,13 +118,13 @@ graph LR
 
 ```mermaid
 sequenceDiagram
-    participant VMC as 🏪 VMC
-    participant Bridge as 🐍 MDB Bridge
-    participant Supabase as 🗄️ Supabase
-    participant Kiosk as 🖥️ Kiosk
-    participant WebApp as 📱 Web App
-    participant User as 👤 Client
-    participant Stripe as ☁️ Stripe
+    participant VMC as "🏪 VMC"
+    participant Bridge as "🐍 MDB Bridge"
+    participant Supabase as "🗄️ Supabase"
+    participant Kiosk as "🖥️ Kiosk"
+    participant WebApp as "📱 Web App"
+    participant User as "👤 Client"
+    participant Stripe as "☁️ Stripe"
 
     Note over VMC,User: État: IDLE
 
