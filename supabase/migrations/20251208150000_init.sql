@@ -128,7 +128,7 @@ BEGIN
 
   -- Check idempotency
   IF p_idempotency_key IS NOT NULL THEN
-    SELECT id, metadata->>'new_balance' INTO v_tx_id, v_metadata
+    SELECT id, metadata INTO v_tx_id, v_metadata
     FROM public.transactions
     WHERE idempotency_key = p_idempotency_key;
 
