@@ -104,13 +104,13 @@ async def main():
     while True:
         try:
             # Re-initialize client on restart to ensure fresh connection
-            if Config.KIOSK_EMAIL and Config.KIOSK_PASSWORD:
-                logger.info(f"🔐 Authenticating as {Config.KIOSK_EMAIL}...")
+            if Config.BRIDGE_EMAIL and Config.BRIDGE_PASSWORD:
+                logger.info(f"🔐 Authenticating as {Config.BRIDGE_EMAIL}...")
                 # Use Anon Key initially, then sign in
                 supabase = await create_async_client(SUPABASE_URL, Config.SUPABASE_ANON_KEY)
                 await supabase.auth.sign_in_with_password({
-                    "email": Config.KIOSK_EMAIL,
-                    "password": Config.KIOSK_PASSWORD
+                    "email": Config.BRIDGE_EMAIL,
+                    "password": Config.BRIDGE_PASSWORD
                 })
                 logger.info("✅ Authenticated successfully.")
             elif SUPABASE_SERVICE_ROLE_KEY:

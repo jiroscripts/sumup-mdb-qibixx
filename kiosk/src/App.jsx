@@ -3,8 +3,8 @@ import QRCode from 'qrcode.react';
 import { supabase } from './supabaseClient';
 
 const MACHINE_ID = import.meta.env.VITE_MACHINE_ID;
-const KIOSK_EMAIL = import.meta.env.VITE_KIOSK_EMAIL;
-const KIOSK_PASSWORD = import.meta.env.VITE_KIOSK_PASSWORD;
+const DISPLAY_EMAIL = import.meta.env.VITE_DISPLAY_EMAIL;
+const DISPLAY_PASSWORD = import.meta.env.VITE_DISPLAY_PASSWORD;
 
 function App() {
     const [status, setStatus] = useState("IDLE"); // IDLE, SHOW_QR, SUCCESS, ERROR
@@ -23,16 +23,16 @@ function App() {
     // 1. Authenticate Kiosk
     useEffect(() => {
         const login = async () => {
-            if (!KIOSK_EMAIL || !KIOSK_PASSWORD) {
+            if (!DISPLAY_EMAIL || !DISPLAY_PASSWORD) {
                 addLog("❌ Missing Credentials in .env");
                 setMessage("Config Error: Missing Credentials");
                 return;
             }
 
-            addLog(`🔐 Authenticating as ${KIOSK_EMAIL}...`);
+            addLog(`🔐 Authenticating as ${DISPLAY_EMAIL}...`);
             const { error } = await supabase.auth.signInWithPassword({
-                email: KIOSK_EMAIL,
-                password: KIOSK_PASSWORD
+                email: DISPLAY_EMAIL,
+                password: DISPLAY_PASSWORD
             });
 
             if (error) {

@@ -18,10 +18,10 @@ class Config:
     SUPABASE_URL = os.getenv("SUPABASE_URL")
     SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
     
-    # Kiosk Authentication (Machine User)
-    # Used to authenticate the Kiosk without using the Service Role Key
-    KIOSK_EMAIL = os.getenv("KIOSK_EMAIL")
-    KIOSK_PASSWORD = os.getenv("KIOSK_PASSWORD")
+    # Kiosk Authentication (Bridge - Admin)
+    # Used to authenticate the Bridge to create sessions
+    BRIDGE_EMAIL = os.getenv("BRIDGE_EMAIL")
+    BRIDGE_PASSWORD = os.getenv("BRIDGE_PASSWORD")
     
     # Fallback: Service Role Key (Only for Dev/Legacy, should be avoided in Prod)
     SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")

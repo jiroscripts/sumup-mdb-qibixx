@@ -100,6 +100,13 @@ clean:
 lint:
 	@npx commitlint --from HEAD~1 --to HEAD --verbose
 
+test:
+	@echo "${GREEN}Running Tests (Vitest)...${NC}"
+	@npx vitest run
+
+test-all: lint test
+	@echo "${GREEN}All tests passed!${NC}"
+
 # --- Supabase ---
 supabase-login:
 	@npx supabase login

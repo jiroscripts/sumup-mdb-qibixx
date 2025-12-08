@@ -176,7 +176,17 @@ SECURITY DEFINER
 AS $$
 DECLARE
     v_new_id uuid;
+    v_user_role text;
 BEGIN
+    -- 0. Security Check: Only allow 'bridge' role or service_role
+    -- We check the JWT claims for the 'app_role'
+    select auth.jwt() -> 'app_metadata' ->> 'app_role' into v_user_role;
+
+    -- Allow if it's a service_role (admin) OR if the user has the 'bridge' role
+    if current_user != 'service_role' and (v_user_role is null or v_user_role != 'bridge') then
+        raise exception 'Access Denied: Only Bridge can create sessions.';
+    end if;
+
     -- 1. Cancel any existing PENDING sessions for this machine
     UPDATE public.vend_sessions
     SET status = 'CANCELLED'
@@ -206,7 +216,16 @@ for each row
 when (old.status != 'COMPLETED' and new.status = 'COMPLETED')
 execute procedure public.handle_balance_update();
 
--- 7. Grants
+-- 7. Grants & Roles
+
+-- Create a dedicated role for Kiosks if it doesn't exist
+-- Note: In Supabase/Postgres, we map this via app_metadata in the JWT.
+-- We don't need a literal Postgres Role, we check the claim in the function or policy.
+-- BUT for RPC execution permissions, Postgres Roles are cleaner.
+
+-- Let's use a simpler approach compatible with Supabase Auth:
+-- We keep GRANT to 'authenticated', BUT we add a check inside the function.
+
 grant select on public.vend_sessions to anon;
 grant select on public.vend_sessions to authenticated;
 grant insert, update, delete on public.vend_sessions to service_role;
