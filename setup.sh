@@ -33,7 +33,13 @@ if ! docker compose version &> /dev/null; then
      sudo apt-get install -y docker-compose-plugin
 fi
 
-# 4. Configuration Setup
+# 4. Install Make (if not installed)
+if ! command -v make &> /dev/null; then
+    echo -e "\n${BLUE}🛠️  Installing Make...${NC}"
+    sudo apt-get install -y make
+fi
+
+# 5. Configuration Setup
 echo -e "\n${BLUE}⚙️  Setting up Configuration...${NC}"
 
 if [ ! -f .env ]; then
@@ -49,10 +55,10 @@ else
     echo -e "${GREEN}✅ .env file already exists.${NC}"
 fi
 
-# 5. Final Instructions
+# 6. Final Instructions
 echo -e "\n${GREEN}🎉 Setup Complete!${NC}"
 echo "-----------------------------------"
 echo "Next Steps:"
 echo "1. Edit the .env file:  nano .env"
-echo "2. Start the Kiosk:     docker compose up -d --build"
-echo "3. View Logs:           docker compose logs -f"
+echo "2. Start Production:    make docker-prod"
+echo "3. Start Dev Mode:      make docker-dev"

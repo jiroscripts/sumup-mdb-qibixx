@@ -1,6 +1,6 @@
-# SumUp MDB Payment System (PoC)
+# MDB Payment System (PoC)
 
-This project simulates a Vending Machine payment system using a Raspberry Pi, Qibixx MDB Pi Hat, and SumUp.
+This project simulates a Vending Machine payment system using a Raspberry Pi, Qibixx MDB Pi Hat, and Stripe.
 
 ## Project Structure
 
@@ -24,7 +24,7 @@ For detailed information, please refer to the following guides:
 
 -   Python 3.9+
 -   Node.js 18+
--   SumUp Developer Account (Client ID/Secret)
+-   Stripe Account (Secret Key/Webhook Secret)
 -   Supabase Project
 
 ## Setup

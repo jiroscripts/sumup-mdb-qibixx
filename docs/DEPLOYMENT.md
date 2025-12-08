@@ -46,7 +46,7 @@ This guide explains how to deploy the Kiosk software on a Raspberry Pi and how t
 
 5.  **Start the Kiosk:**
     ```bash
-    docker compose up -d --build
+    make docker-prod
     ```
     The system will download dependencies, build the containers, and start the app.
 
@@ -74,7 +74,7 @@ If the SD card fails or the Pi crashes, follow these steps to restore service in
     # -> Paste your KIOSK_EMAIL, KIOSK_PASSWORD, SUPABASE_URL, etc.
 
     # 4. Launch
-    docker compose up -d --build
+    make docker-prod
     ```
 
 3.  **Done!** The Kiosk will automatically reconnect to Supabase and resume operations.

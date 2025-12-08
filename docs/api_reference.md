@@ -14,7 +14,7 @@ Cette table est le cœur du système. Elle stocke l'état de chaque transaction.
 | `created_at` | `timestamptz` | Date de création. |
 | `amount` | `numeric` | Montant de la transaction (ex: 2.50). |
 | `status` | `text` | État actuel : `PENDING`, `PAID`, `COMPLETED`, `FAILED`. |
-| `checkout_id` | `text` | ID du checkout SumUp (optionnel). |
+| `checkout_id` | `text` | ID du checkout Stripe (optionnel). |
 | `metadata` | `jsonb` | Données additionnelles (ex: `machine_id`). |
 
 ### Sécurité (RLS)
@@ -46,7 +46,7 @@ Le Bridge et le Kiosk s'abonnent aux changements sur la table `vend_sessions`.
 
 ### 2. Paiement Validé (Supabase -> Bridge & Kiosk)
 
-**Déclencheur** : Le Webhook SumUp (via Edge Function) met à jour le statut à `PAID`.
+**Déclencheur** : Le Webhook Stripe (via Edge Function) met à jour le statut à `PAID`.
 **Événement** : `UPDATE` sur `vend_sessions` où `status=PAID`.
 
 **Payload** :
@@ -72,10 +72,10 @@ Le Bridge et le Kiosk s'abonnent aux changements sur la table `vend_sessions`.
 ## Edge Functions
 
 ### `initiate-wallet-recharge`
-*   **Rôle** : Crée un checkout SumUp pour recharger le wallet (ou payer directement).
+*   **Rôle** : Crée un checkout Stripe pour recharger le wallet (ou payer directement).
 *   **Input** : `{ "amount": 2.50, "session_id": "..." }`
 *   **Output** : `{ "checkout_id": "...", "next_step": "..." }`
 
-### `handle-sumup-webhook`
-*   **Rôle** : Reçoit les notifications de SumUp.
+### `checkout-session-completed`
+*   **Rôle** : Reçoit les notifications de Stripe (Webhook).
 *   **Action** : Met à jour la table `transactions` et `vend_sessions` si le paiement est réussi.

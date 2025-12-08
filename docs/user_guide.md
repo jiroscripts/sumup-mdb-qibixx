@@ -62,7 +62,7 @@ Par défaut, le système fonctionne en **mode simulation**. Vous pouvez tout tes
 2. **Trouvez le panneau Debug** (en bas à droite)
 3. **Cliquez sur "Simulate VMC Request (€2.50)"**
    - ➡️ L'écran passe en mode "Chargement..."
-   - ➡️ Un QR Code SumUp apparaît
+   - ➡️ Un QR Code de paiement apparaît
 4. **Deux options pour payer :**
    - 📱 **Vrai paiement** : Scannez le QR avec votre téléphone
    - 🎭 **Faux paiement** : Cliquez sur "Simulate Successful Payment"
@@ -79,15 +79,14 @@ Par défaut, le système fonctionne en **mode simulation**. Vous pouvez tout tes
 
 **Causes possibles :**
 - Erreur de connexion à Supabase
-- Identifiants SumUp invalides (dans Supabase Edge Functions)
+- Identifiants Stripe invalides (dans Supabase Edge Functions)
 
 **Solution :**
 1. Vérifiez les logs dans le terminal où vous avez lancé `make dev`
 2. Vérifiez vos variables d'environnement dans `.env`
    ```bash
-   SUMUP_CLIENT_ID=votre_client_id
-   SUMUP_CLIENT_SECRET=votre_secret
-   SUMUP_MERCHANT_CODE=votre_code
+   STRIPE_SECRET_KEY=sk_test_...
+   STRIPE_WEBHOOK_SECRET=whsec_...
    ```
 
 ### ❌ Erreur "Serial Port not found"
