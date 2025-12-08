@@ -98,7 +98,7 @@ class MDBService:
                 logger.error(f"Error in MDB loop: {e}")
                 time.sleep(0.1)
 
-    def _handle_message(self, message):
+    def _handle_message(self, message: str) -> None:
         logger.info(f"Received MDB Message: {message}")
         
         # Handle Status Messages
@@ -129,14 +129,14 @@ class MDBService:
             except ValueError:
                 logger.error("Invalid VEND format")
 
-    def _to_decimal(self, value):
+    def _to_decimal(self, value: any) -> Decimal | None:
         """Helper to safely convert to Decimal with 2 places"""
         try:
             return Decimal(str(value)).quantize(Decimal("0.00"))
         except (ValueError, TypeError, InvalidOperation):
             return None
 
-    def approve_vend(self, paid_amount):
+    def approve_vend(self, paid_amount: float | Decimal) -> bool:
         """Sends APPROVE signal to VMC (C,VEND,<amount>)"""
         if self.current_vend_amount is None:
             logger.error("Cannot approve vend: No active vend request")
@@ -158,19 +158,19 @@ class MDBService:
         
         # Removed else block as it is handled by the initial check
 
-    def deny_vend(self):
+    def deny_vend(self) -> None:
         """Sends DENY signal to VMC (C,STOP)"""
         self._send_command("C,STOP")
         self.current_vend_amount = None # Reset state
 
-    def _send_command(self, command):
+    def _send_command(self, command: str) -> None:
         """Helper to send command with newline"""
         if self.serial:
             msg = f"{command}\n".encode('utf-8')
             self.serial.write(msg)
 
     # --- Simulation Helpers ---
-    def simulate_vend_request(self, amount: float = 2.50):
+    def simulate_vend_request(self, amount: float = 2.50) -> None:
         """Injects a fake VEND_REQ message into the serial reader"""
         if isinstance(self.serial, MockSerial):
             # Simulate Qibixx format
