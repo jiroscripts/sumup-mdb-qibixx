@@ -4,12 +4,14 @@ services:
   # 🐍 MDB Bridge (Python Listener)
   mdb_bridge:
     build: ./mdb_bridge
-    container_name: sumup-mdb-bridge
+    container_name: mdb-bridge
     env_file:
       - .env
     environment:
       - MDB_SIMULATION_MODE=${MDB_SIMULATION_MODE:-False}
       - MACHINE_ID=${MACHINE_ID:-pi_kiosk_1}
+      - BRIDGE_EMAIL=${BRIDGE_EMAIL}
+      - BRIDGE_PASSWORD=${BRIDGE_PASSWORD}
     healthcheck:
       test: ["CMD-SHELL", "test $(find /tmp/healthy -mmin -1)"]
       interval: 10s
@@ -19,13 +21,16 @@ services:
   # 🖥️ Kiosk (Display)
   kiosk:
     build:
-      context: ./kiosk
+      context: .
+      dockerfile: kiosk/Dockerfile
       args:
         - VITE_SUPABASE_URL=${SUPABASE_URL}
         - VITE_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
         - VITE_MACHINE_ID=${MACHINE_ID:-pi_kiosk_1}
         - VITE_WEB_APP_URL=${FRONTEND_URL:-http://localhost:5174}
-    container_name: sumup-kiosk
+        - VITE_DISPLAY_EMAIL=${VITE_DISPLAY_EMAIL}
+        - VITE_DISPLAY_PASSWORD=${VITE_DISPLAY_PASSWORD}
+    container_name: kiosk-app
     ports:
       - "8080:80" # Maps port 80 of container to port 8080 of host
     depends_on:
@@ -40,12 +45,12 @@ services:
   # 📱 Web App (Client Mobile App - Optional)
   web:
     build:
-      context: ./web
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: web/Dockerfile
       args:
         - VITE_SUPABASE_URL=${SUPABASE_URL}
         - VITE_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
-    container_name: sumup-web-app
+    container_name: web-app
     ports:
       - "5174:80"
     healthcheck:

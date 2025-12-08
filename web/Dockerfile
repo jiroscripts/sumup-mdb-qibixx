@@ -1,12 +1,17 @@
 # Stage 1: Build
 FROM node:18-alpine as builder
 
-WORKDIR /app
+WORKDIR /app/web
 
-COPY package*.json ./
+# Copy package files from web directory
+COPY web/package*.json ./
 RUN npm install
 
-COPY . .
+# Copy shared config to parent directory
+COPY tailwind-preset.js /app/tailwind-preset.js
+
+# Copy web source code
+COPY web/ .
 
 # Build Arguments
 ARG VITE_SUPABASE_URL
@@ -20,8 +25,8 @@ RUN npm run build
 # Stage 2: Serve
 FROM nginx:alpine
 
-COPY --from=builder /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=builder /app/web/dist /usr/share/nginx/html
+COPY web/nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
 
 CMD ["nginx", "-g", "daemon off;"]

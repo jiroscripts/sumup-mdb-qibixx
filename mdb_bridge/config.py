@@ -4,12 +4,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Config:
-    # SumUp API Configuration
-    # Option 1: API Key (Simpler, recommended for backend scripts)
-    SUMUP_API_KEY = os.getenv("SUMUP_API_KEY")
-    
-    SUMUP_MERCHANT_CODE = os.getenv("SUMUP_MERCHANT_CODE") # Optional if we fetch from API
-    SUMUP_API_URL = "https://api.sumup.com"
+    # Payment API Configuration
+    # Stripe keys are managed in Supabase Secrets or .env for local dev
 
     # MDB / Serial Configuration
     # Set to True to use Mock Serial (no hardware required)
@@ -20,7 +16,14 @@ class Config:
     
     # Supabase Configuration
     SUPABASE_URL = os.getenv("SUPABASE_URL")
-    SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+    SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
+    
+    # Kiosk Authentication (Bridge - Admin)
+    # Used to authenticate the Bridge to create sessions
+    BRIDGE_EMAIL = os.getenv("BRIDGE_EMAIL")
+    BRIDGE_PASSWORD = os.getenv("BRIDGE_PASSWORD")
+    
+
     BAUD_RATE = 115200 # Qibixx MDB Pi Hat uses 115200 to talk to the Pi
 
     # Server Configuration

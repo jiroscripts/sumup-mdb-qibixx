@@ -1,48 +1,35 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
+import { useOutletContext, useNavigate } from 'react-router-dom';
 
 const WalletPage = () => {
-    const [session, setSession] = useState(null);
+    const { session } = useOutletContext();
     const [balance, setBalance] = useState(0.00);
-    const [loading, setLoading] = useState(true);
-    const [rechargeAmount, setRechargeAmount] = useState(10.00);
-    const [widgetStatus, setWidgetStatus] = useState('idle'); // idle, mounting, ready, paid, failed
-    const widgetMounted = useRef(false);
+    const [loading, setLoading] = useState(false);
 
-    // 5. Login UI
+    // Login State
     const [email, setEmail] = useState('');
     const [emailSent, setEmailSent] = useState(false);
 
-    const fetchBalance = async (userId) => {
-        const { data, error } = await supabase
-            .from('wallets')
-            .select('balance')
-            .eq('user_id', userId)
-            .maybeSingle();
+    const navigate = useNavigate();
 
-        if (!error && data) {
-            setBalance(data.balance);
-        }
-    };
-
-    // 1. Auth & Initial Data
     useEffect(() => {
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            setSession(session);
-            if (session) fetchBalance(session.user.id);
-            setLoading(false);
-        });
+        if (session) {
+            const fetchBalance = async (userId) => {
+                const { data, error } = await supabase
+                    .from('wallets')
+                    .select('balance')
+                    .eq('user_id', userId)
+                    .maybeSingle();
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            setSession(session);
-            if (session) fetchBalance(session.user.id);
-            setLoading(false);
-        });
+                if (!error && data) {
+                    setBalance(data.balance);
+                }
+            };
+            fetchBalance(session.user.id);
+        }
+    }, [session]);
 
-        return () => subscription.unsubscribe();
-    }, []);
-
-    // 2. Realtime Balance Updates
     useEffect(() => {
         if (!session) return;
 
@@ -57,7 +44,6 @@ const WalletPage = () => {
                     filter: `user_id=eq.${session.user.id}`
                 },
                 (payload) => {
-                    console.log("Realtime balance update:", payload.new.balance);
                     setBalance(payload.new.balance);
                 }
             )
@@ -68,82 +54,6 @@ const WalletPage = () => {
         };
     }, [session]);
 
-    const handleLogout = async () => {
-        await supabase.auth.signOut();
-        setSession(null);
-        setBalance(0);
-    };
-
-    // 3. Recharge Flow
-    const initRecharge = async () => {
-        if (!session) return;
-        setWidgetStatus('mounting');
-        try {
-            const { data, error } = await supabase.functions.invoke('initiate-wallet-recharge', {
-                body: {
-                    amount: rechargeAmount,
-                    user_id: session.user.id
-                }
-            });
-
-            if (error) {
-                alert("Failed to init recharge: " + error.message);
-                setWidgetStatus('failed');
-                return;
-            }
-
-            if (data.checkout_id) {
-                mountWidget(data.checkout_id);
-            }
-        } catch (e) {
-            console.error(e);
-            setWidgetStatus('failed');
-        }
-    };
-
-    const mountWidget = (id) => {
-        if (widgetMounted.current) return;
-
-        const mount = () => {
-            if (!window.SumUpCard) {
-                setWidgetStatus('failed');
-                return;
-            }
-
-            try {
-                window.SumUpCard.mount({
-                    id: 'sumup-card-wallet',
-                    checkoutId: id,
-                    locale: 'fr-FR',
-                    showGooglePay: true,
-                    showApplePay: true,
-                    onResponse: function (type) {
-                        if (type === 'success') {
-                            // Webhook will handle the credit. We just update UI.
-                            setWidgetStatus('paid');
-                            setTimeout(() => {
-                                setWidgetStatus('idle');
-                                widgetMounted.current = false;
-                                document.getElementById('sumup-card-wallet').innerHTML = "";
-                            }, 3000);
-                        } else if (type === 'error') {
-                            setWidgetStatus('failed');
-                        }
-                    }
-                });
-                widgetMounted.current = true;
-                setWidgetStatus('ready');
-            } catch {
-                setWidgetStatus('failed');
-            }
-        };
-        setTimeout(mount, 100);
-    };
-
-
-
-    // 5. Login UI
-    // State moved to top
 
     const handleLoginGoogle = async () => {
         await supabase.auth.signInWithOAuth({
@@ -164,26 +74,55 @@ const WalletPage = () => {
         else setEmailSent(true);
     };
 
-    if (loading) return <div style={{ padding: '50px', textAlign: 'center' }}>Loading...</div>;
-
     if (!session) {
         return (
-            <div style={{ textAlign: 'center', padding: '40px', maxWidth: '400px', margin: '0 auto', fontFamily: 'sans-serif' }}>
-                <h1>My Wallet</h1>
-                <p>Login to manage your balance.</p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '30px' }}>
-                    <button onClick={handleLoginGoogle} style={{ padding: '12px', background: '#4285F4', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>
-                        Login with Google
+            <div className="flex flex-col items-center justify-center min-h-[60vh] max-w-sm mx-auto w-full">
+                <div className="text-center mb-8">
+                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Welcome Back</h1>
+                    <p className="text-gray-500 dark:text-gray-400">Login to manage your wallet</p>
+                </div>
+
+                <div className="w-full space-y-4">
+                    <button
+                        onClick={handleLoginGoogle}
+                        className="w-full flex items-center justify-center gap-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 font-medium py-3 px-4 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm"
+                    >
+                        <svg className="w-5 h-5" viewBox="0 0 24 24">
+                            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+                            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+                            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
+                            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+                        </svg>
+                        Continue with Google
                     </button>
-                    <div style={{ display: 'flex', alignItems: 'center', color: '#888' }}>
-                        <hr style={{ flex: 1, borderColor: '#eee' }} /> <span style={{ padding: '0 10px', fontSize: '0.8em' }}>OR</span> <hr style={{ flex: 1, borderColor: '#eee' }} />
+
+                    <div className="relative flex items-center py-2">
+                        <div className="flex-grow border-t border-gray-200 dark:border-gray-700"></div>
+                        <span className="flex-shrink-0 mx-4 text-gray-400 text-sm">Or with email</span>
+                        <div className="flex-grow border-t border-gray-200 dark:border-gray-700"></div>
                     </div>
+
                     {emailSent ? (
-                        <div style={{ background: '#d4edda', color: '#155724', padding: '15px', borderRadius: '5px' }}>✅ Magic link sent to <b>{email}</b>.</div>
+                        <div className="bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 p-4 rounded-xl text-center border border-green-100 dark:border-green-800">
+                            ✅ Magic link sent to <b>{email}</b>
+                        </div>
                     ) : (
-                        <form onSubmit={handleLoginEmail} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            <input type="email" placeholder="name@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc' }} />
-                            <button type="submit" style={{ padding: '12px', background: '#333', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>Send Magic Link</button>
+                        <form onSubmit={handleLoginEmail} className="space-y-3">
+                            <input
+                                type="email"
+                                placeholder="name@example.com"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                required
+                                className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all placeholder-gray-400"
+                            />
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className="w-full bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-medium py-3 px-4 rounded-xl hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors disabled:opacity-50"
+                            >
+                                {loading ? "Sending..." : "Send Magic Link"}
+                            </button>
                         </form>
                     )}
                 </div>
@@ -192,41 +131,29 @@ const WalletPage = () => {
     }
 
     return (
-        <div style={{ padding: '20px', maxWidth: '500px', margin: '0 auto', fontFamily: 'sans-serif' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h1>My Wallet</h1>
-                <button onClick={handleLogout}>Logout</button>
+        <div className="flex flex-col items-center gap-6 w-full max-w-md mx-auto">
+            <div className="w-full bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 text-center transition-colors">
+                <p className="text-gray-500 dark:text-gray-400 text-sm font-medium uppercase tracking-wider mb-2">Current Balance</p>
+                <h2 className="text-5xl font-bold text-gray-900 dark:text-white">€{balance.toFixed(2)}</h2>
             </div>
 
-            <div style={{ background: '#f4f4f4', padding: '20px', borderRadius: '10px', marginTop: '20px', textAlign: 'center' }}>
-                <p style={{ fontSize: '0.9em', color: '#666' }}>Current Balance</p>
-                <h2 style={{ fontSize: '2.5em', margin: '10px 0' }}>€{balance.toFixed(2)}</h2>
+            <div className="w-full">
+                <button
+                    onClick={() => navigate('/recharge')}
+                    className="w-full bg-blue-600 dark:bg-blue-500 text-white text-lg font-semibold py-4 px-6 rounded-2xl hover:bg-blue-700 dark:hover:bg-blue-600 transition-all shadow-md hover:shadow-lg active:scale-[0.98]"
+                >
+                    + Add Funds
+                </button>
             </div>
 
-            <div style={{ marginTop: '30px' }}>
-                <h3>Recharge</h3>
-                <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
-                    {[5, 10, 20].map(amt => (
-                        <button key={amt} onClick={() => setRechargeAmount(amt)}
-                            style={{ flex: 1, padding: '10px', background: rechargeAmount === amt ? '#007bff' : '#ddd', color: rechargeAmount === amt ? 'white' : 'black', border: 'none', borderRadius: '5px' }}>
-                            €{amt}
-                        </button>
-                    ))}
-                </div>
-
-                {widgetStatus === 'idle' || widgetStatus === 'failed' ? (
-                    <button onClick={initRecharge} style={{ width: '100%', padding: '15px', background: '#28a745', color: 'white', border: 'none', borderRadius: '5px', fontSize: '1.1em' }}>
-                        Pay €{rechargeAmount}
-                    </button>
-                ) : (
-                    <div style={{ textAlign: 'center', padding: '10px', background: '#eee' }}>
-                        {widgetStatus === 'paid' ? "Payment Successful! Updating balance..." : "Complete Payment below..."}
+            <div className="w-full mt-4">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 px-1">Recent Activity</h3>
+                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 overflow-hidden transition-colors">
+                    <div className="p-8 text-center text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800/50">
+                        <p>No recent transactions</p>
                     </div>
-                )}
-                <div id="sumup-card-wallet" style={{ marginTop: '20px' }}></div>
+                </div>
             </div>
-
-
         </div>
     );
 };

@@ -100,6 +100,13 @@ clean:
 lint:
 	@npx commitlint --from HEAD~1 --to HEAD --verbose
 
+test:
+	@echo "${GREEN}Running Tests (Vitest)...${NC}"
+	@npx vitest run
+
+test-all: lint test
+	@echo "${GREEN}All tests passed!${NC}"
+
 # --- Supabase ---
 supabase-login:
 	@npx supabase login
@@ -134,7 +141,7 @@ supabase-deploy:
 	@npx supabase functions deploy --no-verify-jwt
 
 supabase-push-env:
-	@npx supabase secrets set --env-file .env
+	@npx supabase secrets set --env-file .env.local
 
 supabase-link:
 	@# Explicitly source .env to ensure variables are available to the shell
@@ -161,7 +168,9 @@ supabase-start:
 supabase-stop:
 	@npx supabase stop
 
-setup-webhook:
-	@echo "Installing dependencies for script..."
-	@npm install dotenv node-fetch --no-save
-	@node scripts/setup-webhook.js
+
+
+create-kiosk-user:
+	@echo "Creating Kiosk User..."
+	@npm install dotenv @supabase/supabase-js --no-save
+	@node scripts/create-kiosk-user.js

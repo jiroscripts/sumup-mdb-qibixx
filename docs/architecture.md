@@ -1,11 +1,11 @@
 # Architecture & Flux de Données
 
-Ce document détaille l'architecture technique du système de paiement SumUp MDB.
+Ce document détaille l'architecture technique du système de paiement MDB.
 
 ## Vue d'ensemble du Système
 
 ### Le Problème
-Les distributeurs automatiques traditionnels acceptent uniquement les pièces et billets. Ce système permet d'ajouter le **paiement par QR Code** via SumUp.
+Les distributeurs automatiques traditionnels acceptent uniquement les pièces et billets. Ce système permet d'ajouter le **paiement par QR Code** via Stripe.
 
 ### La Solution
 Le Raspberry Pi se branche entre le distributeur (VMC) et remplace le monnayeur classique :
@@ -13,7 +13,7 @@ Le Raspberry Pi se branche entre le distributeur (VMC) et remplace le monnayeur 
 1. **Le client appuie sur un bouton** du distributeur (ex: "Coca-Cola 2.50€")
 2. **Le distributeur demande au Raspberry Pi** de collecter 2.50€
 3. **Le Raspberry Pi affiche un QR Code** sur l'écran tactile
-4. **Le client scanne et paie** avec son téléphone via SumUp
+4. **Le client scanne et paie** avec son téléphone via Stripe
 5. **Le Raspberry Pi confirme au distributeur** que le paiement est OK
 6. **Le distributeur libère le produit**
 
@@ -23,27 +23,26 @@ Le Raspberry Pi se branche entre le distributeur (VMC) et remplace le monnayeur 
 |-----------|------|
 | **🏪 Distributeur (VMC)** | La machine qui contient les produits. Elle "parle" en protocole MDB. |
 | **🔌 Qibixx Pi Hat** | Carte électronique qui traduit le MDB en Serial pour le Raspberry Pi. |
-| **💻 Raspberry Pi** | Le cerveau du système. Gère les paiements SumUp et l'affichage. |
+| **💻 Raspberry Pi** | Le cerveau du système. Gère les paiements et l'affichage. |
 | **📺 Écran DSI** | Affiche le QR Code et les instructions au client. |
-| **☁️ SumUp API** | Service cloud qui génère les QR Codes et traite les paiements. |
+| **☁️ Stripe API** | Service cloud qui gère les sessions de paiement et les webhooks. |
 
 ### Schéma de Connexion
 
 ```mermaid
-%%{init: {'theme':'dark', 'themeVariables': { 'fontSize':'20px'}}}%%
 graph TB
     VMC["🏪 Distributeur Automatique<br/>(VMC)"]
     Qibixx["🔌 Qibixx MDB Pi Hat Plus"]
     RPi["💻 Raspberry Pi 4"]
     Screen["📺 Écran DSI"]
-    SumUpAPI["☁️ SumUp API"]
+    StripeAPI["☁️ Stripe API"]
     UserPhone["📱 Smartphone Client"]
 
     VMC -->|MDB Bus| Qibixx
     Qibixx -->|Serial UART| RPi
     RPi -->|DSI| Screen
-    RPi -->|HTTPS| SumUpAPI
-    UserPhone -->|Scan QR| SumUpAPI
+    RPi -->|HTTPS| StripeAPI
+    UserPhone -->|Scan QR| StripeAPI
 ```
 
 ## Architecture Logicielle (Raspberry Pi)
@@ -56,7 +55,7 @@ Le système repose sur **trois composants logiciels** interconnectés via Supaba
 |-----------|-------------|------|
 | **🐍 MDB Bridge** | Python (Script Listener) | Gère le matériel (MDB) et écoute les ordres de Supabase. |
 | **🖥️ Kiosk** | React + Vite | Interface affichée sur l'écran du distributeur. Écoute Supabase pour afficher les QR. |
-| **📱 Web App** | React + Vite | Interface de paiement sur le téléphone du client. Initie les transactions SumUp. |
+| **📱 Web App** | React + Vite | Interface de paiement sur le téléphone du client. Initie les transactions Stripe. |
 
 ### Le Hub Central : Supabase
 
@@ -64,35 +63,44 @@ Contrairement à une architecture classique Client-Serveur, ici **tout passe par
 
 *   **Database** : Stocke l'état des sessions de vente (`vend_sessions`).
 *   **Realtime** : Notifie le Backend et le Frontend des changements (ex: nouveau QR code, paiement validé).
-*   **Edge Functions** : Gère la logique métier sécurisée (création checkout SumUp, webhooks).
+*   **Edge Functions** : Gère la logique métier sécurisée (création checkout Stripe, webhooks).
 
 ### Schéma du Flux de Données
 
 ```mermaid
-%%{init: {'theme':'dark', 'themeVariables': { 'fontSize':'20px'}}}%%
-graph LR
-    MDB["📡 Service MDB"]
-    Bridge["🐍 MDB Bridge"]
-    Supabase["🗄️ Supabase (DB + Realtime)"]
-    Kiosk["🖥️ Kiosk (Display)"]
-    WebApp["📱 Web App (Client)"]
-    SumUp["☁️ SumUp API"]
+flowchart TB
+    %% Styles
+    classDef hardware fill:#2d333b,stroke:#444c56,color:#adbac7
+    classDef cloud fill:#2d333b,stroke:#e3b341,color:#adbac7
+    classDef user fill:#2d333b,stroke:#238636,color:#adbac7
 
-    %% Flux Vente
-    MDB -->|1. VEND_REQ| Bridge
-    Bridge -->|2. INSERT session| Supabase
-    Supabase -->|3. Realtime INSERT| Kiosk
-    Kiosk -->|4. Affiche QR| Kiosk
+    subgraph Local ["📍 Local Device (Raspberry Pi)"]
+        direction TB
+        MDB("📡 VMC (Machine)"):::hardware
+        Bridge("🐍 Bridge Service"):::hardware
+        Kiosk("🖥️ Kiosk Display"):::hardware
+    end
+
+    subgraph Cloud ["☁️ Cloud Services"]
+        direction TB
+        Supabase("🗄️ Supabase<br/>(DB + Realtime)"):::cloud
+        Stripe("💳 Stripe API"):::cloud
+    end
+
+    subgraph Client ["👤 User"]
+        WebApp("📱 Mobile WebApp"):::user
+    end
+
+    %% Connections
+    MDB <-->|Serial / GPIO| Bridge
+    Bridge <-->|WebSockets| Supabase
+    Kiosk <-->|WebSockets| Supabase
     
-    %% Flux Paiement
-    WebApp -->|5. Scan QR & Pay| Supabase
-    Supabase -->|6. Call Edge Function| SumUp
-    SumUp -->|7. Webhook (PAID)| Supabase
+    WebApp -->|HTTPS| Supabase
+    Supabase <-->|API| Stripe
     
-    %% Flux Validation
-    Supabase -->|8. Realtime UPDATE (PAID)| Bridge
-    Supabase -->|9. Realtime UPDATE (PAID)| Kiosk
-    Bridge -->|10. APPROVE| MDB
+    %% Implicit Flow (Scan)
+    Kiosk -.->|Scan QR| WebApp
 ```
 
 ## Diagramme de Séquence : Flux de Paiement
@@ -102,22 +110,21 @@ graph LR
 1.  **Demande (VMC -> Bridge)** : Le distributeur demande un paiement (ex: 2.50€).
 2.  **Création Session (Bridge -> Supabase)** : Le Bridge crée une ligne dans `vend_sessions` avec `status='PENDING'`.
 3.  **Affichage (Supabase -> Kiosk)** : Le Kiosk reçoit l'événement `INSERT` et affiche le QR Code correspondant à la session.
-4.  **Paiement (Client -> Web App)** : Le client scanne le QR code, ouvre la Web App, et paie via SumUp.
-5.  **Validation (SumUp -> Supabase)** : SumUp notifie Supabase (via Webhook) que le paiement est réussi. Le statut passe à `PAID`.
+4.  **Paiement (Client -> Web App)** : Le client scanne le QR code, ouvre la Web App, et paie via Stripe.
+5.  **Validation (Stripe -> Supabase)** : Stripe notifie Supabase (via Webhook) que le paiement est réussi. Le statut passe à `PAID`.
 6.  **Distribution (Supabase -> Bridge)** : Le Bridge reçoit l'événement `UPDATE` (`status='PAID'`) et envoie la commande `APPROVE` au distributeur.
 
 ### Diagramme Technique
 
 ```mermaid
-%%{init: {'theme':'dark', 'themeVariables': { 'fontSize':'20px'}}}%%
 sequenceDiagram
-    participant VMC as 🏪 VMC
-    participant Bridge as 🐍 MDB Bridge
-    participant Supabase as 🗄️ Supabase
-    participant Kiosk as 🖥️ Kiosk
-    participant WebApp as 📱 Web App
-    participant User as 👤 Client
-    participant SumUp as ☁️ SumUp
+    participant VMC as "🏪 VMC"
+    participant Bridge as "🐍 MDB Bridge"
+    participant Supabase as "🗄️ Supabase"
+    participant Kiosk as "🖥️ Kiosk"
+    participant WebApp as "📱 Web App"
+    participant User as "👤 Client"
+    participant Stripe as "☁️ Stripe"
 
     Note over VMC,User: État: IDLE
 
@@ -128,12 +135,12 @@ sequenceDiagram
     Kiosk-->>User: Affiche QR Code
     
     User->>WebApp: Scan QR & Open URL
-    WebApp->>Supabase: Edge Function: initiate-payment
-    Supabase->>SumUp: Create Checkout
-    SumUp-->>WebApp: Formulaire Paiement
+    WebApp->>Supabase: Edge Function: initiate-wallet-recharge
+    Supabase->>Stripe: Create Checkout Session
+    Stripe-->>WebApp: Formulaire Paiement
     
-    User->>SumUp: Valide Paiement
-    SumUp->>Supabase: Webhook (PAID)
+    User->>Stripe: Valide Paiement
+    Stripe->>Supabase: Webhook (checkout.session.completed)
     
     par Notification Parallèle
         Supabase-->>Kiosk: Realtime: UPDATE (PAID)

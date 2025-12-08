@@ -1,6 +1,6 @@
-# SumUp MDB Payment System (PoC)
+# MDB Payment System (PoC)
 
-This project simulates a Vending Machine payment system using a Raspberry Pi, Qibixx MDB Pi Hat, and SumUp.
+This project simulates a Vending Machine payment system using a Raspberry Pi, Qibixx MDB Pi Hat, and Stripe.
 
 ## Project Structure
 
@@ -24,48 +24,61 @@ For detailed information, please refer to the following guides:
 
 -   Python 3.9+
 -   Node.js 18+
--   SumUp Developer Account (Client ID/Secret)
+-   Stripe Account (Secret Key/Webhook Secret)
 -   Supabase Project
 
-## Setup
+## Security Architecture 🛡️
+This project implements a robust "Security by Design" approach:
 
-1.  **Install Bridge Dependencies**:
-    ```bash
-    cd mdb_bridge
-    pip install -r requirements.txt
-    cd ..
-    ```
+1.  **Role-Based Access Control (RBAC)**:
+    -   **Bridge Role**: Only the Python Bridge (`bridge-01`) can create vending sessions.
+    -   **Display Role**: The Kiosk Frontend (`display-01`) has Read-Only access.
+    -   **Atomic Sessions**: A custom RPC ensures only one session is active per machine at a time.
 
-2.  **Install Kiosk & Web Dependencies**:
-    ```bash
-    cd kiosk && npm install
-    cd ../web && npm install
-    cd ..
-    ```
+2.  **Secure Payments**:
+    -   Strict `Decimal` type usage for all monetary values (no floating point errors).
+    -   Server-side validation of amounts before dispensing.
 
-3.  **Configuration**:
-    -   Create a `.env` file based on `.env.example`.
-    -   Configure `MDB_SIMULATION_MODE=True` in `.env` to test without hardware.
-
-## Running the System
+## Testing 🧪
+We use **Vitest** for comprehensive testing (Unit, Integration, E2E).
 
 ```bash
-# Run the system (Backend + Frontend + Web + Docs)
-make dev
-
-# Install dependencies
-make install
+# Run all tests (Permissions, Payment Flow, Edge Cases)
+make test
 ```
 
--   **Frontend (Kiosk)**: [http://localhost:5173](http://localhost:5173)
+## Setup & Configuration
+1.  **Install Dependencies**:
+    ```bash
+    make install
+    ```
+
+2.  **Configuration**:
+    -   Create a `.env` file based on `.env.example`.
+    -   **Critical**: Ensure you have separate credentials for Bridge and Display:
+        ```bash
+        BRIDGE_EMAIL="bridge-01@project.com"
+        BRIDGE_PASSWORD="..."
+        VITE_DISPLAY_EMAIL="display-01@project.com"
+        VITE_DISPLAY_PASSWORD="..."
+        ```
+
+## Running the System
+```bash
+# Run with Docker (Recommended)
+make docker-dev
+
+# Run locally
+make dev
+```
+
+-   **Frontend (Kiosk)**: [http://localhost:5173](http://localhost:5173) (or port 8080 with Docker)
 -   **Web App (Mobile)**: [http://localhost:5174](http://localhost:5174)
--   **Backend**: Runs in background (logs to terminal)
 
 ## Simulation Guide
-
-1.  **Open the Kiosk** ([http://localhost:5173](http://localhost:5173)).
-2.  The **MDB Bridge** (in simulation mode) will automatically trigger a "Vend Request" every few seconds (configurable in `.env`).
-3.  The screen will show a QR Code.
-4.  Scan it with your phone (or open the URL in a new tab) to access the **Web App**.
-5.  Complete the payment on the Web App.
-6.  The Kiosk will update to "Payment Approved!" and the Bridge will approve the vend.
+1.  **Open the Kiosk**.
+2.  The **MDB Bridge** (in simulation mode) triggers a "Vend Request".
+3.  The screen shows a QR Code.
+4.  Scan it to access the **Web App**.
+5.  Complete the payment.
+6.  The Kiosk updates to "Payment Approved!" and the Bridge dispenses.

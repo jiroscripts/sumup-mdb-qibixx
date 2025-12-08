@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import Stripe from 'https://esm.sh/stripe@12.0.0?target=deno'
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -12,51 +13,72 @@ serve(async (req) => {
     }
 
     try {
-        const { amount, user_id } = await req.json()
+        const { amount } = await req.json()
 
-        if (!amount || !user_id) {
-            throw new Error("Missing amount or user_id")
+        if (!amount) {
+            throw new Error("Missing amount")
         }
 
-        const SUMUP_API_KEY = Deno.env.get('SUMUP_API_KEY')
-        const SUMUP_MERCHANT_CODE = Deno.env.get('SUMUP_MERCHANT_CODE')
         const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
+        const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')
+        const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY')
         const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 
-        if (!SUMUP_API_KEY || !SUMUP_MERCHANT_CODE || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+        if (!STRIPE_SECRET_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !SUPABASE_ANON_KEY) {
             throw new Error("Server configuration error: Missing Env Vars")
         }
 
-        // 1. Create Checkout on SumUp
-        const webhookUrl = `${SUPABASE_URL}/functions/v1/handle-sumup-webhook`
-        const checkoutRef = `REF-${Date.now()}-${Math.floor(Math.random() * 1000)}`
+        // 1. Verify User Identity
+        const supabaseClient = createClient(
+            SUPABASE_URL,
+            SUPABASE_ANON_KEY,
+            { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+        )
 
-        const payload = {
-            checkout_reference: checkoutRef,
-            amount: amount,
-            currency: 'EUR',
-            description: 'Wallet Recharge',
-            return_url: webhookUrl,
-            merchant_code: SUMUP_MERCHANT_CODE
-        }
+        const { data: { user }, error: userError } = await supabaseClient.auth.getUser()
+        if (userError || !user) throw new Error("Unauthorized")
 
-        const SUMUP_API_URL = Deno.env.get('SUMUP_API_URL') || 'https://api.sumup.com'
+        const user_id = user.id
 
-        const response = await fetch(`${SUMUP_API_URL}/v0.1/checkouts`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${SUMUP_API_KEY}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(payload),
+        const stripe = new Stripe(STRIPE_SECRET_KEY, {
+            apiVersion: '2022-11-15',
+            httpClient: Stripe.createFetchHttpClient(),
         })
 
-        const data = await response.json()
+        // 1. Create Checkout Session on Stripe
+        const webhookUrl = `${SUPABASE_URL}/functions/v1/checkout-session-completed`
+        // Note: We don't strictly need a webhook URL here if we rely on client-side redirection, 
+        // but for security and reliability (async), webhooks are better.
+        // We'll assume the webhook function is deployed at /checkout-session-completed
 
-        if (!response.ok) {
-            console.error("SumUp Error:", data)
-            throw new Error(data.message || "Failed to create checkout")
-        }
+        // Ensure amount is in cents for Stripe (EUR)
+        const amountInCents = Math.round(amount * 100)
+
+        const session = await stripe.checkout.sessions.create({
+            payment_method_types: ['card'],
+            line_items: [
+                {
+                    price_data: {
+                        currency: 'eur',
+                        product_data: {
+                            name: 'Wallet Recharge',
+                        },
+                        unit_amount: amountInCents,
+                    },
+                    quantity: 1,
+                },
+            ],
+            mode: 'payment',
+            // success_url and cancel_url should ideally come from the client or be env vars
+            // For now, we'll use a placeholder or the origin
+            success_url: `${req.headers.get('origin') || 'http://localhost:3000'}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${req.headers.get('origin') || 'http://localhost:3000'}/payment/cancel`,
+            client_reference_id: user_id,
+            metadata: {
+                user_id: user_id,
+                type: 'RECHARGE'
+            }
+        })
 
         // 2. Insert PENDING transaction in Supabase
         const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
@@ -68,20 +90,18 @@ serve(async (req) => {
                 amount: amount,
                 type: 'RECHARGE',
                 status: 'PENDING',
-                description: `SumUp ${data.id}`,
-                metadata: { checkout_id: data.id }
+                description: `Stripe ${session.id}`,
+                metadata: { checkout_id: session.id }
             })
 
         if (insertError) {
             console.error("Failed to insert pending transaction", insertError)
-            // Note: If this fails, the webhook might still process it if we fix the DB later, 
-            // but ideally we should cancel the checkout here.
         }
 
         return new Response(
             JSON.stringify({
-                checkout_id: data.id,
-                amount: data.amount
+                url: session.url,
+                checkout_id: session.id
             }),
             {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -90,6 +110,7 @@ serve(async (req) => {
         )
 
     } catch (error) {
+        console.error("Error:", error)
         return new Response(
             JSON.stringify({ error: error.message }),
             {

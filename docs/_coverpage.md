@@ -1,6 +1,6 @@
-# SumUp MDB Payment System <small>PoC</small>
+# MDB QRCode Payment <small>PoC</small>
 
-> A modern payment integration for Vending Machines using Raspberry Pi & SumUp.
+> A modern payment integration for Vending Machines using Raspberry Pi & Stripe.
 
 - Scalable Architecture
 - Real-time WebSocket UI

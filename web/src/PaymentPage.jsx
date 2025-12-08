@@ -95,18 +95,23 @@ const PaymentPage = () => {
         }
     };
 
-    if (loading) return <div style={{ padding: '50px', textAlign: 'center' }}>Chargement...</div>;
+    if (loading) return (
+        <div className="flex items-center justify-center min-h-[50vh]">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        </div>
+    );
 
     if (success) {
         return (
-            <div style={{ padding: '40px', textAlign: 'center', fontFamily: 'sans-serif', maxWidth: '400px', margin: '0 auto' }}>
-                <div style={{ fontSize: '5em', marginBottom: '20px' }}>✅</div>
-                <h1 style={{ color: '#28a745' }}>Paiement Réussi !</h1>
-                <p style={{ fontSize: '1.2em' }}>Votre café est en préparation.</p>
-                <p style={{ color: '#666' }}>Montant débité : {vendSession?.amount} €</p>
+            <div className="flex flex-col items-center justify-center min-h-[60vh] text-center max-w-md mx-auto">
+                <div className="text-6xl mb-6">✅</div>
+                <h1 className="text-3xl font-bold text-green-600 dark:text-green-400 mb-2">Paiement Réussi !</h1>
+                <p className="text-xl text-gray-700 dark:text-gray-300 mb-2">Votre café est en préparation.</p>
+                <p className="text-gray-500 dark:text-gray-400 mb-8">Montant débité : {vendSession?.amount} €</p>
+
                 <button
                     onClick={() => navigate('/wallet')}
-                    style={{ marginTop: '30px', padding: '12px 25px', background: '#007bff', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontSize: '1em' }}
+                    className="bg-blue-600 text-white px-8 py-3 rounded-xl font-medium hover:bg-blue-700 transition-colors shadow-sm"
                 >
                     Retour au Wallet
                 </button>
@@ -116,22 +121,33 @@ const PaymentPage = () => {
 
     if (error) {
         return (
-            <div style={{ padding: '20px', textAlign: 'center', color: 'red' }}>
-                <h2>Erreur</h2>
-                <p>{error}</p>
-                <button onClick={() => navigate('/wallet')}>Retour</button>
+            <div className="flex flex-col items-center justify-center min-h-[50vh] text-center p-6">
+                <div className="bg-red-50 dark:bg-red-900/30 p-6 rounded-2xl border border-red-100 dark:border-red-800 mb-6">
+                    <h2 className="text-xl font-bold text-red-600 dark:text-red-400 mb-2">Erreur</h2>
+                    <p className="text-red-700 dark:text-red-300">{error}</p>
+                </div>
+                <button
+                    onClick={() => navigate('/wallet')}
+                    className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white font-medium underline"
+                >
+                    Retour
+                </button>
             </div>
         );
     }
 
     if (!session) {
         return (
-            <div style={{ padding: '20px', textAlign: 'center', fontFamily: 'sans-serif' }}>
-                <h2>Connectez-vous pour payer</h2>
-                <p>Montant à payer : <b>{vendSession?.amount} €</b></p>
+            <div className="flex flex-col items-center justify-center min-h-[60vh] text-center max-w-md mx-auto p-4">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Connectez-vous pour payer</h2>
+                <div className="bg-gray-50 dark:bg-gray-800 p-6 rounded-2xl w-full mb-8">
+                    <p className="text-gray-500 dark:text-gray-400 mb-1">Montant à payer</p>
+                    <p className="text-4xl font-bold text-gray-900 dark:text-white">{vendSession?.amount} €</p>
+                </div>
+
                 <button
                     onClick={() => navigate('/wallet')}
-                    style={{ padding: '12px 20px', background: '#333', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }}
+                    className="w-full bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-6 py-4 rounded-xl font-medium hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors shadow-sm"
                 >
                     Aller au Wallet / Connexion
                 </button>
@@ -140,37 +156,27 @@ const PaymentPage = () => {
     }
 
     return (
-        <div style={{ padding: '20px', maxWidth: '400px', margin: '0 auto', fontFamily: 'sans-serif', textAlign: 'center' }}>
-            <h1>Paiement Machine</h1>
-            <p>Montant à régler</p>
-            <h2 style={{ fontSize: '2.5em', margin: '10px 0' }}>{vendSession?.amount} €</h2>
+        <div className="flex flex-col items-center max-w-md mx-auto text-center pt-8">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Paiement Machine</h1>
+            <p className="text-gray-500 dark:text-gray-400">Montant à régler</p>
+            <h2 className="text-5xl font-bold text-gray-900 dark:text-white mt-2 mb-8">{vendSession?.amount} €</h2>
 
-            <div style={{ margin: '40px 0' }}>
-                <span style={{ fontSize: '4em' }}>☕</span>
+            <div className="mb-12 animate-bounce">
+                <span className="text-6xl">☕</span>
             </div>
 
             <button
                 onClick={handlePayCoffee}
                 disabled={processing}
-                style={{
-                    width: '100%',
-                    padding: '15px',
-                    background: processing ? '#ccc' : '#ffc107',
-                    color: 'black',
-                    border: 'none',
-                    borderRadius: '5px',
-                    fontSize: '1.2em',
-                    fontWeight: 'bold',
-                    cursor: processing ? 'not-allowed' : 'pointer'
-                }}
+                className="w-full bg-yellow-400 text-black text-xl font-bold py-4 px-6 rounded-2xl hover:bg-yellow-500 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
             >
                 {processing ? "Traitement..." : "Payer avec mon Wallet"}
             </button>
 
-            <div style={{ marginTop: '20px' }}>
+            <div className="mt-6">
                 <button
                     onClick={() => navigate('/wallet')}
-                    style={{ background: 'none', border: 'none', color: '#007bff', cursor: 'pointer', textDecoration: 'underline' }}
+                    className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium hover:underline"
                 >
                     Annuler
                 </button>
