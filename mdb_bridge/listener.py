@@ -14,7 +14,7 @@ except ImportError:
 
 # Load Config
 SUPABASE_URL = Config.SUPABASE_URL
-SUPABASE_SERVICE_ROLE_KEY = Config.SUPABASE_SERVICE_ROLE_KEY
+
 
 # Setup Logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -113,11 +113,8 @@ async def main():
                     "password": Config.BRIDGE_PASSWORD
                 })
                 logger.info("✅ Authenticated successfully.")
-            elif SUPABASE_SERVICE_ROLE_KEY:
-                logger.warning("⚠️ Using SERVICE_ROLE_KEY (Admin Mode). This is insecure for production Kiosks.")
-                supabase = await create_async_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
             else:
-                logger.error("❌ No authentication credentials found (Email/Pass or Service Key).")
+                logger.error("❌ No authentication credentials found (BRIDGE_EMAIL/PASSWORD).")
                 return
 
             logger.info("🔌 Connecting to Supabase Realtime...")

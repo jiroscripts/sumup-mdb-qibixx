@@ -23,8 +23,7 @@ class Config:
     BRIDGE_EMAIL = os.getenv("BRIDGE_EMAIL")
     BRIDGE_PASSWORD = os.getenv("BRIDGE_PASSWORD")
     
-    # Fallback: Service Role Key (Only for Dev/Legacy, should be avoided in Prod)
-    SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+
     BAUD_RATE = 115200 # Qibixx MDB Pi Hat uses 115200 to talk to the Pi
 
     # Server Configuration

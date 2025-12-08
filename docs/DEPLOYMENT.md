@@ -36,22 +36,17 @@ This guide explains how to deploy the Kiosk software on a Raspberry Pi and how t
 
 4.  **Configure Environment:**
     - Edit the `.env` file created by the script.
-    - **IMPORTANT:** Do NOT include Stripe keys here. Only Kiosk credentials.
+    - **IMPORTANT:** Do NOT include Stripe keys or Service Role Key here.
     ```bash
     nano .env
     ```
-    - Set `VITE_KIOSK_EMAIL` (e.g., `kiosk-01@project.com`)
-    - Set `VITE_KIOSK_PASSWORD` (e.g., `Kiosk2025!Secure`)
+    - Set `BRIDGE_EMAIL` (e.g., `bridge-01@project.com`)
+    - Set `BRIDGE_PASSWORD` (e.g., `Bridge2025!Secure`)
+    - Set `VITE_DISPLAY_EMAIL` (e.g., `display-01@project.com`)
+    - Set `VITE_DISPLAY_PASSWORD` (e.g., `Display2025!Secure`)
     - Set `VITE_MACHINE_ID` (e.g., `kiosk_hall_01`)
 
-5.  **Create Kiosk User (Supabase):**
-    If this is a new deployment, you must create the Kiosk user in Supabase:
-    ```bash
-    make create-kiosk-user
-    ```
-    *Note: Ensure your `.env` contains `SUPABASE_SERVICE_ROLE_KEY` for this step.*
-
-6.  **Start the Kiosk:**
+5.  **Start the Kiosk:**
     ```bash
     make docker-prod
     ```
@@ -78,12 +73,9 @@ If the SD card fails or the Pi crashes, follow these steps to restore service in
 
     # 3. Configure (You need your credentials!)
     nano .env
-    # -> Paste your VITE_KIOSK_EMAIL, VITE_KIOSK_PASSWORD, VITE_SUPABASE_URL, etc.
+    # -> Paste your BRIDGE_EMAIL, VITE_DISPLAY_EMAIL, etc.
 
-    # 4. Create User (if needed)
-    make create-kiosk-user
-
-    # 5. Launch
+    # 4. Launch
     make docker-prod
     ```
 
@@ -101,15 +93,19 @@ If you need to redeploy the backend (Supabase) to a new project:
     ./scripts/init-supabase.sh
     ```
 3.  Follow the interactive prompts to login and link your project.
+4.  **Create Kiosk Users** (From your Dev Machine, NOT the Pi):
+    ```bash
+    make create-kiosk-users
+    ```
 
 ---
 
 ## 🔐 Security Notes
 
 - **Never** store `STRIPE_SECRET_KEY` on the Raspberry Pi.
-- **Never** store `SUPABASE_SERVICE_ROLE_KEY` on the Raspberry Pi (unless absolutely necessary for legacy reasons).
-- Use **Kiosk Users** (Email/Password) for authentication.
+- **Never** store `SUPABASE_SERVICE_ROLE_KEY` on the Raspberry Pi.
+- Use **Bridge/Display Users** (Email/Password) for authentication.
 - If a Pi is stolen:
     1.  Go to Supabase Dashboard > Authentication > Users.
-    2.  Delete or Ban the compromised Kiosk user (e.g., `kiosk-01@project.com`).
+    2.  Delete or Ban the compromised Bridge/Display users.
     3.  The stolen device will immediately lose access to the database (RLS policies enforce this).
