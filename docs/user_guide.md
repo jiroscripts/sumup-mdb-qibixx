@@ -13,8 +13,8 @@ Avant de commencer, assurez-vous d'avoir :
 ### Étape 1 : Récupérer le Projet
 
 ```bash
-git clone <votre-repo>
-cd sumup-mdb-qibixx
+git clone https://github.com/jiroscripts/mdb-qrcode-payment.git
+cd mdb-qrcode-payment
 ```
 
 ### Étape 2 : Installer les Dépendances

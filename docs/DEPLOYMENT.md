@@ -23,8 +23,8 @@ This guide explains how to deploy the Kiosk software on a Raspberry Pi and how t
     - Install Git: `sudo apt-get install -y git`
     - Clone the repo:
       ```bash
-      git clone https://github.com/your-username/sumup-mdb-qibixx.git
-      cd sumup-mdb-qibixx
+      git clone https://github.com/jiroscripts/mdb-qrcode-payment.git
+      cd mdb-qrcode-payment
       ```
 
 3.  **Run Setup Script:**
@@ -64,8 +64,8 @@ If the SD card fails or the Pi crashes, follow these steps to restore service in
 
     ```bash
     # 1. Clone & Enter
-    git clone https://github.com/your-username/sumup-mdb-qibixx.git
-    cd sumup-mdb-qibixx
+    git clone https://github.com/jiroscripts/mdb-qrcode-payment.git
+    cd mdb-qrcode-payment
 
     # 2. Setup
     chmod +x setup.sh

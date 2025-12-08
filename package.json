@@ -1,7 +1,7 @@
 {
-    "name": "sumup-mdb-qibixx",
+    "name": "mdb-qrcode-payment",
     "version": "1.0.0",
-    "description": "SumUp MDB Payment System PoC",
+    "description": "MDB Payment System PoC",
     "scripts": {
         "prepare": "husky install",
         "lint": "cd kiosk && npm run lint && cd ../web && npm run lint"
@@ -17,6 +17,6 @@
     },
     "repository": {
         "type": "git",
-        "url": "https://github.com/your-repo/sumup-mdb-qibixx.git"
+        "url": "https://github.com/your-username/mdb-qrcode-payment.git"
     }
 }

@@ -40,7 +40,7 @@ graph LR
 
 ```bash
 # Clone the repo
-git clone https://github.com/your-repo/sumup-mdb-qibixx.git
+git clone git@github.com:jiroscripts/mdb-qrcode-payment.git
 
 # Run the system
 # Install dependencies

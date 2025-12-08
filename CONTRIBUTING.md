@@ -24,7 +24,7 @@ Les messages de commit doivent suivre ce format :
 | `style` | Formatage, style | `style: format Python files with black` |
 | `refactor` | Refactoring | `refactor(mdb): simplify serial communication` |
 | `perf` | Performance | `perf(api): optimize WebSocket polling` |
-| `test` | Tests | `test(payment): add unit tests for SumUp service` |
+| `test` | Tests | `test(payment): add unit tests for payment service` |
 | `build` | Build system | `build: update dependencies` |
 | `ci` | CI/CD | `ci: add GitHub Actions workflow` |
 | `chore` | Tâches diverses | `chore: update .gitignore` |
