@@ -18,5 +18,8 @@
     "repository": {
         "type": "git",
         "url": "https://github.com/your-username/mdb-qrcode-payment.git"
+    },
+    "dependencies": {
+        "uuid": "^13.0.0"
     }
 }
