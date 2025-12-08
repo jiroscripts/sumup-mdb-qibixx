@@ -22,7 +22,7 @@ serve(async (req) => {
         const { data: { user }, error: userError } = await supabaseClient.auth.getUser()
         if (userError || !user) throw new Error("Unauthorized")
 
-        const { session_id } = await req.json().catch(() => ({}))
+        const { session_id, idempotency_key } = await req.json().catch(() => ({}))
         if (!session_id) throw new Error("Missing session_id")
 
         // 2. Use Admin Client for DB operations
@@ -34,7 +34,8 @@ serve(async (req) => {
         // 3. Call Atomic RPC
         const { data, error } = await supabaseAdmin.rpc('process_vend_payment', {
             p_session_id: session_id,
-            p_user_id: user.id
+            p_user_id: user.id,
+            p_idempotency_key: idempotency_key || crypto.randomUUID() // Fallback if client doesn't send one
         })
 
         if (error) {

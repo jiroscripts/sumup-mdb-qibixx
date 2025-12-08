@@ -1,239 +1,251 @@
--- Consolidated Schema Migration
--- Generated: 2025-12-08
--- Description: Full schema setup including Tables, RLS, Functions, and Triggers.
+-- Full Production-Ready Migration with Safety, Idempotency, Checks, and Improved Security
+-- Includes: safer defaults, idempotency, concurrency-safe triggers, RLS, RPCs, enums/checks
 
 -- 0. Enable Extensions
 create extension if not exists pgcrypto with schema extensions;
 
--- 1. Clean up old objects (Safety check)
-drop table if exists public.vend_requests cascade;
-drop table if exists public.vend_sessions cascade;
-drop table if exists public.transactions cascade;
-drop table if exists public.wallets cascade;
-drop function if exists public.handle_new_transaction() cascade;
-drop function if exists public.handle_transaction_update() cascade;
-drop function if exists public.handle_balance_update() cascade;
-drop function if exists public.process_vend_payment(uuid, uuid) cascade;
-drop function if exists public.create_vend_session(numeric, text) cascade;
+-- 1. Cleanup old objects
+DROP FUNCTION IF EXISTS public.handle_balance_update() CASCADE;
+DROP FUNCTION IF EXISTS public.process_vend_payment(uuid, uuid, text) CASCADE;
+DROP FUNCTION IF EXISTS public.create_vend_session(numeric, text) CASCADE;
+DROP FUNCTION IF EXISTS public._ensure_wallet_for_user(uuid) CASCADE;
+
+DROP TABLE IF EXISTS public.vend_sessions CASCADE;
+DROP TABLE IF EXISTS public.transactions CASCADE;
+DROP TABLE IF EXISTS public.wallets CASCADE;
 
 -- 2. Create Tables
 
--- Wallets (The State)
-create table public.wallets (
-  user_id uuid references auth.users primary key,
-  balance numeric default 0.00 not null,
-  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+CREATE TABLE public.wallets (
+  user_id uuid PRIMARY KEY REFERENCES auth.users,
+  balance numeric(12,2) NOT NULL DEFAULT 0.00,
+  updated_at timestamptz NOT NULL DEFAULT timezone('utc', now())
 );
 
--- Transactions (The Ledger)
-create table public.transactions (
-  id uuid default gen_random_uuid() primary key,
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
-  user_id uuid references auth.users not null,
-  amount numeric not null,
-  type text not null, -- 'RECHARGE' or 'VEND'
-  status text default 'COMPLETED', -- PENDING, COMPLETED, FAILED
+CREATE TABLE public.transactions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at timestamptz NOT NULL DEFAULT timezone('utc', now()),
+  user_id uuid NOT NULL REFERENCES auth.users,
+  amount numeric(12,2) NOT NULL,
+  type text NOT NULL CHECK (type IN ('RECHARGE', 'VEND')),
+  status text NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'COMPLETED', 'FAILED')),
   description text,
-  metadata jsonb -- For storing checkout_id, etc.
+  metadata jsonb,
+  idempotency_key text,
+  CONSTRAINT ux_transactions_idempotency_key UNIQUE (idempotency_key) DEFERRABLE INITIALLY IMMEDIATE
 );
 
--- Vend Sessions (The Machine State)
-create table public.vend_sessions (
-    id uuid default gen_random_uuid() primary key,
-    created_at timestamp with time zone default timezone('utc'::text, now()) not null,
-    amount numeric not null,
-    status text default 'PENDING', -- PENDING, PAID, COMPLETED, FAILED, CANCELLED
-    metadata jsonb default '{}'::jsonb
+CREATE TABLE public.vend_sessions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at timestamptz NOT NULL DEFAULT timezone('utc', now()),
+  amount numeric(12,2) NOT NULL,
+  status text NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'PAID', 'COMPLETED', 'FAILED', 'CANCELLED')),
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb
 );
 
--- 3. Enable Security (RLS)
-alter table public.transactions enable row level security;
-alter table public.wallets enable row level security;
-alter table public.vend_sessions enable row level security;
+-- 3. Enable RLS
+ALTER TABLE public.wallets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.vend_sessions ENABLE ROW LEVEL SECURITY;
 
 -- 4. Policies
 
--- Transactions: "I can only see my own data"
-create policy "Users can view own transactions"
-on public.transactions for select
-to authenticated
-using (auth.uid() = user_id);
+-- Wallets
+CREATE POLICY wallets_select_own
+ON public.wallets FOR SELECT TO authenticated
+USING (auth.uid() = user_id);
 
--- Wallets: "I can only see my own wallet"
-create policy "Users can view own wallet"
-on public.wallets for select
-to authenticated
-using (auth.uid() = user_id);
+-- Transactions
+CREATE POLICY transactions_select_own
+ON public.transactions FOR SELECT TO authenticated
+USING (auth.uid() = user_id);
 
--- Vend Sessions: Security Policies
--- A. READ (SELECT)
--- 1. Authenticated Users (Kiosks & Logged-in Users)
--- Any authenticated user (including Kiosk) can see ALL sessions.
-create policy "Authenticated users can view all sessions"
-on public.vend_sessions for select
-to authenticated
-using (true);
+-- Vend Sessions
+CREATE POLICY vend_sessions_select_all_authenticated
+ON public.vend_sessions FOR SELECT TO authenticated
+USING (true);
 
--- 2. Public (Unauthenticated)
--- Can ONLY see PENDING sessions (for payment page).
-create policy "Public can view pending sessions"
-on public.vend_sessions for select
-using (status = 'PENDING');
+CREATE POLICY vend_sessions_select_public_recent_pending
+ON public.vend_sessions FOR SELECT TO anon
+USING (status = 'PENDING' AND created_at > (now() - interval '30 minutes'));
 
--- B. WRITE (INSERT/UPDATE)
--- Only Service Role can write. No policies for anon/authenticated.
 
--- 5. Functions
 
--- Function: Handle Balance Update (Trigger)
-create or replace function public.handle_balance_update() 
-returns trigger as $$
-begin
-  -- Credit/Debit Wallet only if status is COMPLETED
-  if new.status = 'COMPLETED' then
-      insert into public.wallets (user_id, balance)
-      values (new.user_id, new.amount)
-      on conflict (user_id) do update
-      set balance = wallets.balance + new.amount,
-          updated_at = now();
-  end if;
-  return new;
-end;
-$$ language plpgsql security definer;
+-- 5. Helper Functions
 
--- Function: Process Vend Payment (Atomic RPC)
-create or replace function public.process_vend_payment(
+CREATE OR REPLACE FUNCTION public._ensure_wallet_for_user(p_user uuid)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $$
+BEGIN
+  PERFORM set_config('search_path','public', true);
+  INSERT INTO public.wallets (user_id, balance) VALUES (p_user, 0.00)
+  ON CONFLICT (user_id) DO NOTHING;
+END;
+$$;
+
+-- 6. Trigger: Balance Update
+
+CREATE OR REPLACE FUNCTION public.handle_balance_update()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE v_balance numeric(12,2);
+BEGIN
+  PERFORM set_config('search_path','public', true);
+
+  IF (TG_OP = 'INSERT' AND NEW.status = 'COMPLETED') OR
+     (TG_OP = 'UPDATE' AND OLD.status IS DISTINCT FROM 'COMPLETED' AND NEW.status = 'COMPLETED') THEN
+
+    PERFORM public._ensure_wallet_for_user(NEW.user_id);
+
+    SELECT balance INTO v_balance
+    FROM public.wallets
+    WHERE user_id = NEW.user_id
+    FOR UPDATE;
+
+    UPDATE public.wallets
+    SET balance = balance + NEW.amount,
+        updated_at = timezone('utc', now())
+    WHERE user_id = NEW.user_id;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+-- 7. RPC: Process Vend Payment (idempotent)
+
+CREATE OR REPLACE FUNCTION public.process_vend_payment(
   p_session_id uuid,
-  p_user_id uuid
-)
-returns jsonb
-language plpgsql
-security definer
-as $$
-declare
+  p_user_id uuid,
+  p_idempotency_key text
+) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
   v_amount numeric;
+  v_status text;
+  v_metadata jsonb;
   v_balance numeric;
-  v_session_status text;
-  v_session_metadata jsonb;
-begin
-  -- 1. Lock and check Session
-  select amount, status, metadata into v_amount, v_session_status, v_session_metadata
-  from public.vend_sessions
-  where id = p_session_id
-  for update;
+  v_tx_id uuid;
+BEGIN
+  PERFORM set_config('search_path','public', true);
 
-  if not found then
-    raise exception 'Session invalid';
-  end if;
+  -- Check idempotency
+  IF p_idempotency_key IS NOT NULL THEN
+    SELECT id, metadata->>'new_balance' INTO v_tx_id, v_metadata
+    FROM public.transactions
+    WHERE idempotency_key = p_idempotency_key;
 
-  if v_session_status != 'PENDING' then
-    raise exception 'Session already processed';
-  end if;
+    IF v_tx_id IS NOT NULL THEN
+      RETURN jsonb_build_object(
+        'success', true,
+        'new_balance', (v_metadata::jsonb->>'new_balance')::numeric
+      );
+    END IF;
+  END IF;
 
-  -- 2. Check Balance
-  select balance into v_balance
-  from public.wallets
-  where user_id = p_user_id;
+  -- Lock session
+  SELECT amount, status, metadata INTO v_amount, v_status, v_metadata
+  FROM public.vend_sessions
+  WHERE id = p_session_id
+  FOR UPDATE;
 
-  if v_balance is null or v_balance < v_amount then
-    raise exception 'Insufficient funds';
-  end if;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Session invalid'; END IF;
+  IF v_status <> 'PENDING' THEN RAISE EXCEPTION 'Session already used'; END IF;
 
-  -- 3. Insert Transaction (Debit)
-  insert into public.transactions (user_id, amount, type, status, description, metadata)
-  values (
+  -- Ensure wallet
+  PERFORM public._ensure_wallet_for_user(p_user_id);
+
+  SELECT balance INTO v_balance
+  FROM public.wallets
+  WHERE user_id = p_user_id
+  FOR UPDATE;
+
+  IF v_balance < v_amount THEN RAISE EXCEPTION 'Insufficient funds'; END IF;
+
+  -- Insert transaction
+  INSERT INTO public.transactions (user_id, amount, type, status, description, metadata, idempotency_key)
+  VALUES (
     p_user_id,
     -v_amount,
     'VEND',
     'COMPLETED',
     'Coffee Purchase',
-    jsonb_build_object('source', 'web_wallet', 'session_id', p_session_id)
-  );
+    jsonb_build_object('session_id', p_session_id),
+    p_idempotency_key
+  ) RETURNING id INTO v_tx_id;
 
-  -- 4. Update Session
-  update public.vend_sessions
-  set status = 'PAID',
-      metadata = coalesce(v_session_metadata, '{}'::jsonb) || jsonb_build_object('paid_by', p_user_id)
-  where id = p_session_id;
+  -- Update session
+  UPDATE public.vend_sessions
+  SET status = 'PAID',
+      metadata = v_metadata || jsonb_build_object('paid_by', p_user_id, 'paid_at', now())
+  WHERE id = p_session_id;
 
-  -- 5. Get new balance
-  select balance into v_balance
-  from public.wallets
-  where user_id = p_user_id;
+  -- Get new balance
+  SELECT balance INTO v_balance
+  FROM public.wallets WHERE user_id = p_user_id;
 
-  return jsonb_build_object('success', true, 'new_balance', v_balance);
-end;
-$$;
+  -- Store new balance inside metadata for idempotency replay
+  UPDATE public.transactions
+  SET metadata = metadata || jsonb_build_object('new_balance', v_balance)
+  WHERE id = v_tx_id;
 
--- Function: Create Vend Session (Atomic RPC)
-CREATE OR REPLACE FUNCTION public.create_vend_session(
-    p_amount numeric,
-    p_machine_id text
-)
-RETURNS uuid
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-DECLARE
-    v_new_id uuid;
-    v_user_role text;
-BEGIN
-    -- 0. Security Check: Only allow 'bridge' role or service_role
-    -- We check the JWT claims for the 'app_role'
-    select auth.jwt() -> 'app_metadata' ->> 'app_role' into v_user_role;
-
-    -- Allow if it's a service_role (admin) OR if the user has the 'bridge' role
-    if current_user != 'service_role' and (v_user_role is null or v_user_role != 'bridge') then
-        raise exception 'Access Denied: Only Bridge can create sessions.';
-    end if;
-
-    -- 1. Cancel any existing PENDING sessions for this machine
-    UPDATE public.vend_sessions
-    SET status = 'CANCELLED'
-    WHERE metadata->>'machine_id' = p_machine_id
-    AND status = 'PENDING';
-
-    -- 2. Create the new session
-    INSERT INTO public.vend_sessions (amount, status, metadata)
-    VALUES (p_amount, 'PENDING', jsonb_build_object('machine_id', p_machine_id))
-    RETURNING id INTO v_new_id;
-
-    RETURN v_new_id;
+  RETURN jsonb_build_object('success', true, 'new_balance', v_balance);
 END;
 $$;
 
--- 6. Triggers
+-- 8. RPC: Create Vend Session
 
--- Trigger for NEW transactions
-create trigger on_transaction_created
-after insert on public.transactions
-for each row execute procedure public.handle_balance_update();
+CREATE OR REPLACE FUNCTION public.create_vend_session(
+  p_amount numeric,
+  p_machine_id text
+) RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+  v_new_id uuid;
+  v_user_role text;
+BEGIN
+  PERFORM set_config('search_path','public', true);
 
--- Trigger for UPDATED transactions
-create trigger on_transaction_updated
-after update on public.transactions
-for each row 
-when (old.status != 'COMPLETED' and new.status = 'COMPLETED')
-execute procedure public.handle_balance_update();
+  SELECT auth.jwt() -> 'app_metadata' ->> 'app_role' INTO v_user_role;
 
--- 7. Grants & Roles
+  IF current_user <> 'service_role' AND (v_user_role IS NULL OR v_user_role <> 'bridge') THEN
+    RAISE EXCEPTION 'Access denied: Only bridge/service can create sessions.';
+  END IF;
 
--- Create a dedicated role for Kiosks if it doesn't exist
--- Note: In Supabase/Postgres, we map this via app_metadata in the JWT.
--- We don't need a literal Postgres Role, we check the claim in the function or policy.
--- BUT for RPC execution permissions, Postgres Roles are cleaner.
+  UPDATE public.vend_sessions
+  SET status = 'CANCELLED'
+  WHERE (metadata->>'machine_id') = p_machine_id AND status = 'PENDING';
 
--- Let's use a simpler approach compatible with Supabase Auth:
--- We keep GRANT to 'authenticated', BUT we add a check inside the function.
+  INSERT INTO public.vend_sessions (amount, status, metadata)
+  VALUES (p_amount, 'PENDING', jsonb_build_object('machine_id', p_machine_id))
+  RETURNING id INTO v_new_id;
 
-grant select on public.vend_sessions to anon;
-grant select on public.vend_sessions to authenticated;
-grant insert, update, delete on public.vend_sessions to service_role;
+  RETURN v_new_id;
+END;
+$$;
 
-grant execute on function public.process_vend_payment(uuid, uuid) to service_role;
-grant execute on function public.create_vend_session(numeric, text) to service_role;
-grant execute on function public.create_vend_session(numeric, text) to authenticated;
+-- 9. Triggers
 
--- 8. Enable Realtime
-alter publication supabase_realtime add table public.vend_sessions;
-alter publication supabase_realtime add table public.wallets;
+CREATE TRIGGER on_transaction_created
+AFTER INSERT ON public.transactions
+FOR EACH ROW WHEN (NEW.status = 'COMPLETED')
+EXECUTE PROCEDURE public.handle_balance_update();
+
+CREATE TRIGGER on_transaction_completed_update
+AFTER UPDATE ON public.transactions
+FOR EACH ROW WHEN (OLD.status IS DISTINCT FROM 'COMPLETED' AND NEW.status = 'COMPLETED')
+EXECUTE PROCEDURE public.handle_balance_update();
+
+-- 10. Grants
+
+GRANT SELECT ON public.vend_sessions TO anon;
+GRANT SELECT ON public.vend_sessions TO authenticated;
+GRANT INSERT, UPDATE, DELETE ON public.vend_sessions TO service_role;
+
+GRANT SELECT ON public.transactions TO authenticated;
+GRANT SELECT ON public.wallets TO authenticated;
+
+GRANT EXECUTE ON FUNCTION public.process_vend_payment(uuid, uuid, text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.create_vend_session(numeric, text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.create_vend_session(numeric, text) TO authenticated;
+
+-- 11. Realtime
+ALTER PUBLICATION supabase_realtime ADD TABLE public.vend_sessions;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.wallets;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.transactions;

@@ -8,6 +8,7 @@
 - **Backend**: Supabase (PostgreSQL, Auth, Realtime, Storage).
 - **Bridge**: Python 3.x (Asyncio, Supabase-py).
 - **Package Manager**: npm.
+- **Payment**: Stripe (via Supabase Edge Functions).
 
 ## Core Conventions
 
