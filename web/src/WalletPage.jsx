@@ -53,10 +53,10 @@ const WalletPage = () => {
         // --- Realtime Updates ---
         const channel = supabase
             .channel('wallet-updates')
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'wallets', filter: `user_id=eq.${session.user.id}` },
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'wallets' },
                 (payload) => setBalance(payload.new.balance)
             )
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'transactions', filter: `user_id=eq.${session.user.id}` },
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'transactions' },
                 (payload) => setTransactions(prev => [payload.new, ...prev].slice(0, 5))
             )
             .subscribe();
