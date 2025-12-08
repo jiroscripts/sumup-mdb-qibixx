@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
 import Layout from './components/Layout';
 import PaymentPage from './PaymentPage';
@@ -16,12 +16,7 @@ function App() {
                     <Route path="/payment/success" element={<PaymentSuccessPage />} />
                     <Route path="/wallet" element={<WalletPage />} />
                     <Route path="/recharge" element={<RechargePage />} />
-                    <Route path="/" element={
-                        <div className="text-center p-12">
-                            <h1>Vending Machine Web App</h1>
-                            <p>Scan the QR code on the machine to pay.</p>
-                        </div>
-                    } />
+                    <Route path="/" element={<Navigate to="/wallet" replace />} />
                 </Route>
             </Routes>
         </Router>
