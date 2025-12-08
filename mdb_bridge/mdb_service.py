@@ -3,6 +3,7 @@ import time
 import threading
 import logging
 import queue
+from decimal import Decimal, InvalidOperation
 try:
     from .config import Config
 except ImportError:
@@ -119,7 +120,7 @@ class MDBService:
                 
                 if len(parts) >= 4:
                     amount_str = parts[3]
-                    amount = float(amount_str)
+                    amount = Decimal(amount_str)
                     self.current_vend_amount = amount
                     
                     logger.info(f"Vending Request for {amount} EUR")
@@ -128,16 +129,34 @@ class MDBService:
             except ValueError:
                 logger.error("Invalid VEND format")
 
-    def approve_vend(self):
+    def _to_decimal(self, value):
+        """Helper to safely convert to Decimal with 2 places"""
+        try:
+            return Decimal(str(value)).quantize(Decimal("0.00"))
+        except (ValueError, TypeError, InvalidOperation):
+            return None
+
+    def approve_vend(self, paid_amount):
         """Sends APPROVE signal to VMC (C,VEND,<amount>)"""
-        if self.current_vend_amount is not None:
-            cmd = f"C,VEND,{self.current_vend_amount:.2f}"
-            self._send_command(cmd)
-            self.current_vend_amount = None # Reset state
-            return True
-        else:
+        if self.current_vend_amount is None:
             logger.error("Cannot approve vend: No active vend request")
             return False
+
+        # 1. Conversion & Validation
+        paid_val = self._to_decimal(paid_amount)
+        requested_val = self._to_decimal(self.current_vend_amount)
+
+        # 2. Security Check (Si l'un est None ou s'ils sont différents => Erreur)
+        if not paid_val or not requested_val or paid_val != requested_val:
+            logger.error(f"🚨 SECURITY ALERT: Amount Mismatch or Invalid! Paid: {paid_val}, Requested: {requested_val}")
+            return False
+
+        # 3. Action
+        self._send_command(f"C,VEND,{requested_val}")
+        self.current_vend_amount = None
+        return True
+        
+        # Removed else block as it is handled by the initial check
 
     def deny_vend(self):
         """Sends DENY signal to VMC (C,STOP)"""

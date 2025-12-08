@@ -3,6 +3,7 @@ import asyncio
 import logging
 import os
 import time
+from decimal import Decimal
 from dotenv import load_dotenv
 from pathlib import Path
 from supabase import create_async_client, AsyncClient
@@ -43,20 +44,25 @@ mdb_service = MDBService(on_vend_request_sync)
 async def create_vend_session(amount):
     """
     Called when the Machine asks for money (MDB VEND REQUEST).
-    1. Create session in Supabase
+    1. Create session in Supabase using Atomic RPC
     """
     try:
-        # 1. Create session
-        res = await supabase.table('vend_sessions').insert({
-            'amount': amount,
-            'status': 'PENDING',
-            'metadata': {'machine_id': Config.MACHINE_ID}
+        # 1. Call RPC to create session (and auto-cancel old ones)
+        # We convert Decimal to string to ensure precision when sending to Postgres
+        res = await supabase.rpc('create_vend_session', {
+            'p_amount': str(amount),
+            'p_machine_id': Config.MACHINE_ID
         }).execute()
         
-        session = res.data[0]
-        logger.info(f"🆕 Session Created: {session['id']} | Amount: {amount}")
+        # RPC returns the UUID directly (or inside data depending on client version, usually data)
+        session_id = res.data
         
-        return session['id']
+        if session_id:
+            logger.info(f"🆕 Session Created: {session_id} | Amount: {amount}")
+            return session_id
+        else:
+            logger.error("Failed to create session: No ID returned")
+            return None
 
     except Exception as e:
         logger.error(f"Error creating session: {e}")
@@ -71,16 +77,16 @@ def handle_realtime_update(payload):
     record = payload.get('new', {})
     if record.get('status') == 'PAID':
         session_id = record['id']
-        amount = record['amount']
+        amount = Decimal(str(record['amount']))
         logger.info(f"⚡ Realtime: Payment Detected! Session: {session_id} | Amount: {amount}")
         
         # We need to run async DB updates from this callback.
         # Since the callback might be sync, we schedule a task.
-        asyncio.create_task(process_dispense(session_id))
+        asyncio.create_task(process_dispense(session_id, amount))
 
-async def process_dispense(session_id):
+async def process_dispense(session_id, amount):
     # Dispense
-    if mdb_service.approve_vend():
+    if mdb_service.approve_vend(amount):
         logger.info("✅ Dispense Successful.")
         await supabase.table('vend_sessions').update({'status': 'COMPLETED'}).eq('id', session_id).execute()
     else:

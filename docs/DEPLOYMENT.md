@@ -40,11 +40,18 @@ This guide explains how to deploy the Kiosk software on a Raspberry Pi and how t
     ```bash
     nano .env
     ```
-    - Set `KIOSK_EMAIL` (e.g., `kiosk-01@project.com`)
-    - Set `KIOSK_PASSWORD` (e.g., `Kiosk2025!Secure`)
-    - Set `MACHINE_ID` (e.g., `kiosk_hall_01`)
+    - Set `VITE_KIOSK_EMAIL` (e.g., `kiosk-01@project.com`)
+    - Set `VITE_KIOSK_PASSWORD` (e.g., `Kiosk2025!Secure`)
+    - Set `VITE_MACHINE_ID` (e.g., `kiosk_hall_01`)
 
-5.  **Start the Kiosk:**
+5.  **Create Kiosk User (Supabase):**
+    If this is a new deployment, you must create the Kiosk user in Supabase:
+    ```bash
+    make create-kiosk-user
+    ```
+    *Note: Ensure your `.env` contains `SUPABASE_SERVICE_ROLE_KEY` for this step.*
+
+6.  **Start the Kiosk:**
     ```bash
     make docker-prod
     ```
@@ -71,9 +78,12 @@ If the SD card fails or the Pi crashes, follow these steps to restore service in
 
     # 3. Configure (You need your credentials!)
     nano .env
-    # -> Paste your KIOSK_EMAIL, KIOSK_PASSWORD, SUPABASE_URL, etc.
+    # -> Paste your VITE_KIOSK_EMAIL, VITE_KIOSK_PASSWORD, VITE_SUPABASE_URL, etc.
 
-    # 4. Launch
+    # 4. Create User (if needed)
+    make create-kiosk-user
+
+    # 5. Launch
     make docker-prod
     ```
 
@@ -102,4 +112,4 @@ If you need to redeploy the backend (Supabase) to a new project:
 - If a Pi is stolen:
     1.  Go to Supabase Dashboard > Authentication > Users.
     2.  Delete or Ban the compromised Kiosk user (e.g., `kiosk-01@project.com`).
-    3.  The stolen device will immediately lose access to the database.
+    3.  The stolen device will immediately lose access to the database (RLS policies enforce this).

@@ -3,19 +3,51 @@ import QRCode from 'qrcode.react';
 import { supabase } from './supabaseClient';
 
 const MACHINE_ID = import.meta.env.VITE_MACHINE_ID;
+const KIOSK_EMAIL = import.meta.env.VITE_KIOSK_EMAIL;
+const KIOSK_PASSWORD = import.meta.env.VITE_KIOSK_PASSWORD;
 
 function App() {
     const [status, setStatus] = useState("IDLE"); // IDLE, SHOW_QR, SUCCESS, ERROR
-    const [message, setMessage] = useState("Ready for order");
+    const [message, setMessage] = useState("Booting...");
     const [qrData, setQrData] = useState(null);
     const [currentSessionId, setCurrentSessionId] = useState(null);
     const [amount, setAmount] = useState(0);
     const [logs, setLogs] = useState([]);
     const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
 
     const addLog = React.useCallback((msg) => {
         setLogs(prev => [`${new Date().toLocaleTimeString()} - ${msg}`, ...prev].slice(0, 10));
     }, []);
+
+    // 1. Authenticate Kiosk
+    useEffect(() => {
+        const login = async () => {
+            if (!KIOSK_EMAIL || !KIOSK_PASSWORD) {
+                addLog("❌ Missing Credentials in .env");
+                setMessage("Config Error: Missing Credentials");
+                return;
+            }
+
+            addLog(`🔐 Authenticating as ${KIOSK_EMAIL}...`);
+            const { error } = await supabase.auth.signInWithPassword({
+                email: KIOSK_EMAIL,
+                password: KIOSK_PASSWORD
+            });
+
+            if (error) {
+                console.error("Login failed:", error);
+                addLog(`❌ Login Failed: ${error.message}`);
+                setMessage("Authentication Failed");
+            } else {
+                addLog("✅ Authenticated successfully");
+                setIsAuthenticated(true);
+                setMessage("Ready for order");
+            }
+        };
+
+        login();
+    }, [addLog]);
 
     useEffect(() => {
         if (theme === 'dark') {
@@ -69,6 +101,8 @@ function App() {
     }, [addLog]);
 
     useEffect(() => {
+        if (!isAuthenticated) return;
+
         setTimeout(() => addLog("Connecting to Supabase Realtime..."), 0);
 
         const channel = supabase
@@ -93,7 +127,7 @@ function App() {
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [currentSessionId, handleNewSession, handleSessionUpdate, addLog]);
+    }, [currentSessionId, handleNewSession, handleSessionUpdate, addLog, isAuthenticated]);
 
     const [showWalletQr, setShowWalletQr] = useState(false);
 

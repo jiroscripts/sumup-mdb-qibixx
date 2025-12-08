@@ -165,3 +165,8 @@ setup-webhook:
 	@echo "Installing dependencies for script..."
 	@npm install dotenv node-fetch --no-save
 	@node scripts/setup-webhook.js
+
+create-kiosk-user:
+	@echo "Creating Kiosk User..."
+	@npm install dotenv @supabase/supabase-js --no-save
+	@node scripts/create-kiosk-user.js
