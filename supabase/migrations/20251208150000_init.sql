@@ -51,14 +51,15 @@ ALTER TABLE public.vend_sessions ENABLE ROW LEVEL SECURITY;
 -- 4. Policies
 
 -- Wallets
+-- Wallets
 CREATE POLICY wallets_select_own
 ON public.wallets FOR SELECT TO authenticated
-USING (auth.uid() = user_id);
+USING ((select auth.uid()) = user_id);
 
 -- Transactions
 CREATE POLICY transactions_select_own
 ON public.transactions FOR SELECT TO authenticated
-USING (auth.uid() = user_id);
+USING ((select auth.uid()) = user_id);
 
 -- Vend Sessions
 CREATE POLICY vend_sessions_select_all_authenticated
@@ -74,9 +75,8 @@ USING (status = 'PENDING' AND created_at > (now() - interval '30 minutes'));
 -- 5. Helper Functions
 
 CREATE OR REPLACE FUNCTION public._ensure_wallet_for_user(p_user uuid)
-RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $$
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
-  PERFORM set_config('search_path','public', true);
   INSERT INTO public.wallets (user_id, balance) VALUES (p_user, 0.00)
   ON CONFLICT (user_id) DO NOTHING;
 END;
@@ -85,11 +85,9 @@ $$;
 -- 6. Trigger: Balance Update
 
 CREATE OR REPLACE FUNCTION public.handle_balance_update()
-RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER AS $$
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE v_balance numeric(12,2);
 BEGIN
-  PERFORM set_config('search_path','public', true);
-
   IF (TG_OP = 'INSERT' AND NEW.status = 'COMPLETED') OR
      (TG_OP = 'UPDATE' AND OLD.status IS DISTINCT FROM 'COMPLETED' AND NEW.status = 'COMPLETED') THEN
 
@@ -116,7 +114,7 @@ CREATE OR REPLACE FUNCTION public.process_vend_payment(
   p_session_id uuid,
   p_user_id uuid,
   p_idempotency_key text
-) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER AS $$
+) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
   v_amount numeric;
   v_status text;
@@ -124,8 +122,6 @@ DECLARE
   v_balance numeric;
   v_tx_id uuid;
 BEGIN
-  PERFORM set_config('search_path','public', true);
-
   -- Check idempotency
   IF p_idempotency_key IS NOT NULL THEN
     SELECT id, metadata INTO v_tx_id, v_metadata
@@ -195,13 +191,11 @@ $$;
 CREATE OR REPLACE FUNCTION public.create_vend_session(
   p_amount numeric,
   p_machine_id text
-) RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER AS $$
+) RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
   v_new_id uuid;
   v_user_role text;
 BEGIN
-  PERFORM set_config('search_path','public', true);
-
   SELECT auth.jwt() -> 'app_metadata' ->> 'app_role' INTO v_user_role;
 
   IF current_user <> 'service_role' AND (v_user_role IS NULL OR v_user_role <> 'bridge') THEN
